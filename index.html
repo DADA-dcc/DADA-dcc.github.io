@@ -191,6 +191,8 @@
         <span class="chip">已存资料 <b id="statNotes">0</b> 条</span>
         <span class="chip">小游戏 <b>4</b> 款</span>
         <span class="chip">在线时长 <b id="statUptime">0</b> 分</span>
+        <span class="chip">今日访问 <b id="statToday">0</b> <span class="small mold">次</span></span>
+        <span class="chip">总访问 <b id="statTotal">0</b> <span class="small mold">次</span></span>
       </div>
     </div>
     <div class="quick" id="quick">
@@ -260,6 +262,13 @@
     </div>
     <div class="note-list" id="noteList"></div>
     <h2 class="sec" style="margin-top:20px">📎 文件区</h2>
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="upFile" type="file" style="flex:1;min-width:200px;font-family:inherit;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:8px 10px;font-size:13px" />
+        <button class="btn" id="upFileBtn">上传到云</button>
+        <span class="small muted" id="upHint" style="align-self:center"></span>
+      </div>
+    </div>
     <div class="note-list" id="fileList"><div class="small muted">加载中…</div></div>
   </section>
 
@@ -420,27 +429,78 @@ document.getElementById('noteSearch').addEventListener('input',e=>{ noteQuery=e.
 document.getElementById('noteFilter').addEventListener('change',e=>{ noteCatFilter=e.target.value; renderNotes(); });
 loadNotes();
 
-/* 文件区：读取 ./resources/index.json */
-(function loadFiles(){
-  fetch('./resources/index.json').then(r=>r.ok?r.json():[]).then(list=>{
-    const box=document.getElementById('fileList'); box.innerHTML='';
-    if(!Array.isArray(list)||!list.length){ box.innerHTML='<div class="small muted">暂无文件。把文件放进仓库的 resources/ 目录，并在 resources/index.json 里登记即可。</div>'; return; }
-    list.forEach(f=>{ const el=document.createElement('div'); el.className='file-item';
-      el.innerHTML=`<span>📄</span><a href="${encodeURI(f.path)}" target="_blank" rel="noopener">${esc(f.name||f.path)}</a><span class="small muted" style="margin-left:auto">${esc(f.desc||'')}</span>`;
-      box.appendChild(el); });
-  }).catch(()=>{ document.getElementById('fileList').innerHTML='<div class="small muted">暂无文件清单。</div>'; });
-})();
+/* 文件区：本地 resources/index.json + Supabase 云文件（复用 messages 表） */
+const FILE_PREFIX='__file__';
+async function loadFiles(){
+  const box=document.getElementById('fileList');
+  try{
+    // 云文件
+    const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    const all=res.ok?await res.json():[];
+    const cloud=all.filter(x=>String(x.name||'').indexOf(FILE_PREFIX)===0);
+    // 本地文件
+    let local=[];
+    try{ local=await (await fetch('./resources/index.json')).json(); }catch(e){ local=[]; }
+    box.innerHTML='';
+    const items=(cloud||[]).map(c=>{ let name=c.body||'file', data=null;
+      try{ const parsed=JSON.parse(c.body||''); if(parsed&&parsed.name){ name=parsed.name; data=parsed.data; } }catch(e){}
+      return {name:name, data:data, id:c.id};
+    }).concat((local||[]).map(f=>({name:f.name||f.path, path:f.path, desc:f.desc})));
+    if(!items.length){ box.innerHTML='<div class="small muted">暂无文件。可上传到云端，或放仓库 resources/ 并在 index.json 登记。</div>'; return; }
+    items.forEach(f=>{
+      const el=document.createElement('div'); el.className='file-item';
+      const title='<span>📄</span>';
+      if(f.data){
+        el.innerHTML=title+`<a id="cf-${esc(f.id)}" href="#" style="color:var(--cyan);font-weight:600">${esc(f.name)}</a><span class="small muted" style="margin-left:auto">云文件</span>`;
+        el.querySelector('a').addEventListener('click',(ev)=>{ ev.preventDefault(); const bytes=Uint8Array.from(atob(f.data),c=>c.charCodeAt(0)); const blob=new Blob([bytes]); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=f.name; a.click(); URL.revokeObjectURL(u); });
+      } else {
+        el.innerHTML=title+`<a href="${encodeURI(f.path)}" target="_blank" rel="noopener">${esc(f.name)}</a><span class="small muted" style="margin-left:auto">${esc(f.desc||'')}</span>`;
+      }
+      box.appendChild(el);
+    });
+  }catch(e){ box.innerHTML='<div class="small muted">文件区加载失败</div>'; }
+}
+async function uploadFile(){
+  const inp=document.getElementById('upFile');
+  const file=inp.files&&inp.files[0];
+  if(!file){ return; }
+  const hint=document.getElementById('upHint'); hint.style.cssText='align-self:center'; hint.textContent='上传中…';
+  try{
+    const fr=await file.arrayBuffer(); const bytes=new Uint8Array(fr); let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b));
+    const data=btoa(bin);
+    if(data.length>30000){ hint.textContent='文件过大（>约22KB），改用仓库上传'; return; }
+    await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:FILE_PREFIX+Date.now(),body:JSON.stringify({name:file.name,data:data}),ts:Date.now()})});
+    inp.value=''; hint.textContent='✅ 已上传到云';
+    await loadFiles();
+  }catch(e){ hint.textContent='上传失败：'+e.message; }
+}
+document.getElementById('upFileBtn').addEventListener('click',uploadFile);
 
-/* ============ 留言板（Supabase 云） ============ */
+/* ============ 留言板 + 访问统计（复用 Supabase messages 表） ============ */
 const MSG_TBL=SUPA_URL+'/rest/v1/messages';
+const VISIT_PREFIX='__vis__'; // 用 name 前缀区分“访问计数”记录与真实留言
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+async function trackVisit(){
+  try{
+    // 本会话只计一次（sessionStorage），刷新不重复刷访问量
+    if(sessionStorage.getItem('xv_'+todayStr())) return;
+    sessionStorage.setItem('xv_'+todayStr(),'1');
+    await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:VISIT_PREFIX+todayStr(),body:'#',ts:Date.now()})}).catch(()=>{});
+  }catch(e){}
+}
 async function loadMessages(){
   try{
     const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
     if(!res.ok) throw new Error('HTTP '+res.status);
-    const list=await res.json();
+    const all=await res.json();
+    const visits=all.filter(x=>String(x.name||'').indexOf(VISIT_PREFIX)===0);
+    const msgs=all.filter(x=>String(x.name||'').indexOf(VISIT_PREFIX)!==0);
+    const today=todayStr();
+    document.getElementById('statTotal').textContent=visits.length;
+    document.getElementById('statToday').textContent=visits.filter(x=>String(x.name||'').indexOf(today)>=0).length;
     const box=document.getElementById('msgList'); box.innerHTML='';
-    if(!list.length){ box.innerHTML='<div class="small muted">还没有留言，第一个说点啥？</div>'; }
-    list.forEach(m=>{
+    if(!msgs.length){ box.innerHTML='<div class="small muted">还没有留言，第一个说点啥？</div>'; }
+    msgs.forEach(m=>{
       const el=document.createElement('div'); el.className='note-item';
       const dt=new Date(m.ts||Date.now()).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
       el.innerHTML=`<h4>${esc(m.name||'匿名')} <span class="small muted" style="font-weight:400">${esc(dt)}</span></h4><p>${esc(m.body)}</p>`;
@@ -460,6 +520,7 @@ async function addMessage(){
   }catch(e){ alert('留言失败：'+e.message); }
 }
 document.getElementById('addMsg').addEventListener('click',addMessage);
+trackVisit();
 loadMessages();
 
 /* ============ AI 助手 ============ */
@@ -594,6 +655,9 @@ function startMemory(){
   });
   return ()=>{};
 }
+
+/* 统一初始化（依赖前述常量，放最后） */
+setTimeout(()=>{ try{ loadFiles(); }catch(e){ console.warn('loadFiles',e); } }, 100);
 </script>
 </body>
 </html>
