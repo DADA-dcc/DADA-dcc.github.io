@@ -207,10 +207,17 @@
       <div class="game-card"><div class="game-cover">🐍</div><div class="game-body"><h3>贪吃蛇</h3><p>方向键 / 按钮控制，吃到果实变长，别撞墙撞自己。</p><button class="btn" data-game="snake">开始</button></div></div>
       <div class="game-card"><div class="game-cover">🔢</div><div class="game-body"><h3>2048</h3><p>方向键合并相同数字，凑出 2048。</p><button class="btn" data-game="g2048">开始</button></div></div>
       <div class="game-card"><div class="game-cover">🃏</div><div class="game-body"><h3>记忆翻牌</h3><p>翻开配对相同的图标，考验记忆力。</p><button class="btn" data-game="memory">开始</button></div></div>
-      <a class="game-card" href="./games/arena-zero/" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit">
+      <div class="game-card">
         <div class="game-cover">🎯</div>
-        <div class="game-body"><h3>零号竞技场 · FPS</h3><p>我做的 3D 枪战竞技场：8 人乱斗 · 3 张地图 · WASD 移动 / 鼠标射击（新标签全屏开玩）。</p><span class="btn">进入竞技场</span></div>
-      </a>
+        <div class="game-body">
+          <h3>零号竞技场 · FPS</h3>
+          <p>我做的 3D 枪战竞技场：8 人乱斗 · 3 张地图 · WASD 移动 / 鼠标射击。</p>
+          <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" data-game="arena">全屏开玩</button>
+            <a class="btn ghost" href="./games/arena-zero.zip" download style="text-decoration:none;display:inline-flex;align-items:center">下载</a>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -219,12 +226,34 @@
     <h2 class="sec">📚 资料库</h2>
     <div class="card" style="margin-bottom:14px">
       <div class="note-form">
-        <input id="noteTitle" placeholder="标题（如：某知识点的要点）" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="noteTitle" placeholder="标题（如：某知识点的要点）" style="flex:1;min-width:160px" />
+          <select id="noteCat" style="font-family:inherit;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px 12px;font-size:13.5px;outline:none">
+            <option value="笔记">📝 笔记</option>
+            <option value="链接">🔗 链接</option>
+            <option value="资料">📦 资料</option>
+            <option value="灵感">💡 灵感</option>
+            <option value="待办">✅ 待办</option>
+          </select>
+        </div>
         <textarea id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
         <div style="display:flex;gap:8px">
           <button class="btn" id="addNote">保存资料</button>
           <span class="small muted" id="noteHint" style="align-self:center">资料库：<b id="noteSource">连接中…</b>（Supabase 云数据库·跨设备）</span>
         </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="noteSearch" placeholder="🔍 搜索标题 / 内容…" style="font-family:inherit;flex:1;min-width:180px;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:9px 12px;font-size:13.5px;outline:none" />
+        <select id="noteFilter" style="font-family:inherit;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:9px 12px;font-size:13.5px;outline:none">
+          <option value="">全部分类</option>
+          <option value="笔记">📝 笔记</option>
+          <option value="链接">🔗 链接</option>
+          <option value="资料">📦 资料</option>
+          <option value="灵感">💡 灵感</option>
+          <option value="待办">✅ 待办</option>
+        </select>
       </div>
     </div>
     <div class="note-list" id="noteList"></div>
@@ -317,6 +346,7 @@ function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 function lsLoad(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)||'[]'); }catch(e){ return []; } }
 function lsSave(a){ try{ localStorage.setItem(NOTES_KEY,JSON.stringify(a)); }catch(e){} }
 let notesCache=[];
+let noteQuery=''; let noteCatFilter='';
 function setSrc(t){ const el=document.getElementById('noteSource'); if(el) el.textContent=t; }
 async function loadNotes(){
   try{
@@ -324,16 +354,23 @@ async function loadNotes(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     notesCache=await res.json(); lsSave(notesCache); setSrc('Supabase 云');
   }catch(e){ notesCache=lsLoad(); setSrc('本地离线'); }
+  renderNotes();
 }
 function renderNotes(){
-  const arr=notesCache; const box=document.getElementById('noteList'); box.innerHTML='';
-  document.getElementById('statNotes').textContent=arr.length;
-  if(!arr.length){ box.innerHTML='<div class="small muted">还没有资料，上面新增一条试试。</div>'; return; }
+  const q=noteQuery.trim().toLowerCase(); const cf=noteCatFilter;
+  const arr=notesCache.filter(n=>{
+    if(cf && (n.cat||'笔记')!==cf) return false;
+    if(q && !(String(n.title||'').toLowerCase().includes(q)||String(n.body||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const box=document.getElementById('noteList'); box.innerHTML='';
+  document.getElementById('statNotes').textContent=notesCache.length;
+  if(!arr.length){ box.innerHTML='<div class="small muted">没有匹配的资料。</div>'; return; }
   arr.forEach(n=>{
-    const body=String(n.body||''); const isLink=/^https?:\/\//i.test(body.trim());
+    const body=String(n.body||''); const isLink=/^https?:\/\//i.test(body.trim()); const cat=n.cat||'笔记';
     const el=document.createElement('div'); el.className='note-item';
     el.innerHTML=`<button class="del" data-id="${n.id}" title="删除">🗑</button>
-      <h4>${esc(n.title||'(无标题)')} <span class="type">${isLink?'链接':'笔记'}</span></h4>
+      <h4>${esc(n.title||'(无标题)')} <span class="type">${esc(cat)}</span></h4>
       ${isLink?`<p><a href="${esc(body.trim())}" target="_blank" rel="noopener" style="color:var(--cyan)">${esc(body.trim())}</a></p>`:`<p>${esc(body)}</p>`}`;
     box.appendChild(el);
   });
@@ -342,7 +379,8 @@ async function addNote(){
   const t=document.getElementById('noteTitle').value.trim();
   const b=document.getElementById('noteBody').value.trim();
   if(!t && !b){ return; }
-  const rec={title:t,body:b,ts:Date.now()};
+  const cat=document.getElementById('noteCat').value || '笔记';
+  const rec={title:t,body:b,cat:cat,ts:Date.now()};
   try{
     const res=await fetch(SUPA_URL+'/rest/v1/notes',{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(rec)});
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -360,7 +398,9 @@ async function delNote(id){
 }
 document.getElementById('addNote').addEventListener('click',addNote);
 document.getElementById('noteList').addEventListener('click',e=>{ const d=e.target.closest('.del'); if(d) delNote(d.dataset.id); });
-loadNotes().then(renderNotes);
+document.getElementById('noteSearch').addEventListener('input',e=>{ noteQuery=e.target.value; renderNotes(); });
+document.getElementById('noteFilter').addEventListener('change',e=>{ noteCatFilter=e.target.value; renderNotes(); });
+loadNotes();
 
 /* 文件区：读取 ./resources/index.json */
 (function loadFiles(){
@@ -399,6 +439,7 @@ document.getElementById('aiInput').addEventListener('keydown',e=>{ if(e.key==='E
 const overlay=document.getElementById('overlay'), gameMount=document.getElementById('gameMount'), gameBar=document.getElementById('gameBar'), gameTitle=document.getElementById('gameTitle');
 let activeGameStop=null;
 function openGame(type){
+  if(type==='arena'){ open(''+location.origin+'/games/arena-zero/','_blank'); return; }
   gameMount.innerHTML=''; gameBar.innerHTML='';
   if(activeGameStop){ try{activeGameStop();}catch(e){} activeGameStop=null; }
   const titles={snake:'🐍 贪吃蛇', g2048:'🔢 2048', memory:'🃏 记忆翻牌'};
