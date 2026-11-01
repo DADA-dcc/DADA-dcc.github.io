@@ -3,160 +3,1186 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#05070f" />
 <title>XS 空间站 · 开发者个人空间</title>
 <meta name="description" content="XS 空间站：一个开发者的个人空间，收录小游戏、技术资料与 AI 助手。" />
 <style>
-  :root{
-    --bg:#05070f; --panel:rgba(14,20,38,.72); --panel2:rgba(20,28,52,.66);
-    --line:rgba(120,160,255,.18); --cyan:#49e6ff; --violet:#a06bff; --gold:#f3c969;
-    --txt:#dbe6ff; --muted:#8fa2c7; --ok:#37e0a0; --bad:#ff6b8a;
-    --shadow:0 18px 50px -22px rgba(0,0,0,.9);
+/* ══════════════════════════════════════════════════════════════════
+   XS 空间站 · 深空甲板 / Deep-Space Deck
+   ──────────────────────────────────────────────────────────────────
+   设计语言借自 awesome-design-md 里的线性/精密派系：
+     · Linear  —— 深度只来自「表面阶梯 + 1px 发丝线」，拒绝投影与雾气渐变
+     · Raycast —— 单一强调色纪律；饱和色只进插画，不进壳层
+     · Vercel  —— 内嵌 0 0 0 .5px 发丝环，让卡片边缘永远锋利
+     · Warp    —— 显示级字重 400/600 + 负字距；等宽只用于技术信息
+     · Cursor  —— 全系统只有发丝级高度，无 elevation 分层
+   本页三条自定规矩：
+     1. 一支青作为动作色；紫只做环境光；金只做数字。
+     2. 深度靠层级，不靠模糊。整页只有模态遮罩允许 blur。
+     3. 半径、间距、字阶各一套阶梯，不许临时数值。
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── 表面阶梯 ── */
+  --canvas: #05070f;
+  --s1: #0a0e1a;
+  --s2: #0e1424;
+  --s3: #131b2e;
+  --s4: #182238;
+
+  /* ── 发丝线 ── */
+  --hair: rgba(120, 160, 255, 0.13);
+  --hair-strong: rgba(120, 160, 255, 0.24);
+  --hair-accent: rgba(73, 230, 255, 0.42);
+
+  /* ── 色 ── */
+  --cyan: #49e6ff;
+  --cyan-soft: rgba(73, 230, 255, 0.13);
+  --violet: #a06bff;
+  --gold: #f3c969;
+
+  --txt: #dbe6ff;
+  --txt-strong: #f2f7ff;
+  --muted: #8fa2c7;
+  --dim: #63748f;
+  --ok: #37e0a0;
+  --bad: #ff6b8a;
+
+  /* ── 高度：内嵌发丝环 + 极小偏移，永不出现大柔光 ── */
+  --ring: 0 0 0 0.5px var(--hair-strong);
+  --lift-1: var(--ring), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --lift-2: var(--ring), 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.75);
+
+  /* ── 半径阶梯 ── */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 22px;
+  --r-full: 999px;
+
+  /* ── 间距阶梯（4 基） ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ── 字族 ── */
+  --font: -apple-system, "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: -apple-system, "Segoe UI Variable Display", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", "SFMono-Regular",
+    Consolas, monospace;
+
+  /* ── 节奏 ── */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --t-fast: 120ms;
+  --t: 160ms;
+  --t-slow: 260ms;
+}
+
+/* ═══════════════ 基础 ═══════════════ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font: 400 14.5px/1.68 var(--font);
+  letter-spacing: 0.002em;
+  color: var(--txt);
+  background: var(--canvas);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+/* 环境光：紫在这里，且只在这里 */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 44% at 14% 6%, rgba(91, 73, 255, 0.16), transparent 62%),
+    radial-gradient(48% 38% at 88% 18%, rgba(73, 230, 255, 0.10), transparent 62%),
+    radial-gradient(66% 56% at 50% 118%, rgba(160, 107, 255, 0.11), transparent 64%);
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-10);
+}
+
+::selection {
+  color: var(--txt-strong);
+  background: var(--cyan-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 160, 255, 0.2);
+  border: 2px solid transparent;
+  border-radius: var(--r-full);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(73, 230, 255, 0.36);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ═══════════════ 字阶 ═══════════════ */
+
+.eyebrow {
+  margin: 0;
+  font: 500 10.5px/1.4 var(--mono);
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.3vw, 32px);
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.032em;
+  color: var(--txt-strong);
+}
+
+.lead {
+  margin: var(--sp-2) 0 0;
+  max-width: 640px;
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════ 页头 ═══════════════ */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--hair);
+}
+
+.logo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 15px/1 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+  background: var(--s2);
+  border: 1px solid var(--hair-strong);
+  box-shadow: inset 0 0 0 0.5px rgba(73, 230, 255, 0.16);
+}
+
+.logo::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--r-xl);
+  border: 1px solid rgba(73, 230, 255, 0.22);
+  animation: breathe 4.4s var(--ease) infinite;
+  pointer-events: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.16;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{
-    font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
-    color:var(--txt); background:var(--bg); overflow-x:hidden; line-height:1.65;
-    -webkit-font-smoothing:antialiased;
+  50% {
+    opacity: 0.5;
   }
-  #stars{position:fixed;inset:0;z-index:0;display:block}
-  .glow{position:fixed;inset:0;z-index:0;pointer-events:none;
-    background:
-      radial-gradient(60% 45% at 15% 8%, rgba(91,73,255,.20), transparent 60%),
-      radial-gradient(50% 40% at 88% 20%, rgba(73,230,255,.14), transparent 60%),
-      radial-gradient(70% 60% at 50% 120%, rgba(160,107,255,.14), transparent 60%);
+}
+
+.brand {
+  min-width: 0;
+}
+
+/* 品牌字是全页唯一的多色渐变 */
+.brand h1 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  background: linear-gradient(96deg, #e8f0ff 0%, #49e6ff 62%, #9fb6ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand .tagline {
+  margin: 1px 0 0;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.clock {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s1);
+  font: 500 13px/1.3 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+/* ═══════════════ 导航：分段胶囊 ═══════════════ */
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  margin-bottom: var(--sp-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: var(--s1);
+  box-shadow: var(--ring);
+}
+
+nav button {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--muted);
+  transition: color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+nav button .ic {
+  font-size: 14px;
+  line-height: 1;
+  filter: saturate(0.85);
+}
+
+nav button:hover {
+  color: var(--txt);
+  background: var(--s2);
+}
+
+nav button.active {
+  color: var(--cyan);
+  background: var(--s3);
+  border-color: var(--hair-accent);
+  box-shadow: inset 0 0 0 0.5px rgba(73, 230, 255, 0.18);
+}
+
+/* ═══════════════ 视图切换 ═══════════════ */
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+  animation: rise var(--t-slow) var(--ease);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
   }
-  .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:20px 16px 80px}
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 
-  /* header */
-  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-  .logo{width:46px;height:46px;border-radius:14px;flex:0 0 auto;position:relative;
-    background:linear-gradient(135deg,#12224a,#1b2f66);border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--cyan);
-    box-shadow:0 0 26px -6px rgba(73,230,255,.55)}
-  .logo::after{content:"";position:absolute;inset:-3px;border-radius:16px;border:1px solid rgba(73,230,255,.25);animation:pulse 3s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:.8}}
-  .brand h1{margin:0;font-size:19px;letter-spacing:.02em;
-    background:linear-gradient(90deg,#dbe6ff,#49e6ff 60%,#a06bff);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
-  .clock{margin-left:auto;font-variant-numeric:tabular-nums;font-size:13px;color:var(--cyan);
-    border:1px solid var(--line);background:var(--panel);padding:6px 12px;border-radius:10px;white-space:nowrap}
+/* ═══════════════ 卡片：哑光面板 + 顶边高光 ═══════════════ */
 
-  /* nav */
-  nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
-  nav button{
-    font-family:inherit;cursor:pointer;border:1px solid var(--line);color:var(--muted);
-    background:var(--panel2);padding:9px 16px;border-radius:12px;font-size:13.5px;font-weight:600;
-    transition:.18s; display:inline-flex;align-items:center;gap:7px}
-  nav button:hover{color:var(--txt);border-color:rgba(120,160,255,.4)}
-  nav button.active{color:#04121a;background:linear-gradient(135deg,#49e6ff,#7bd0ff);border-color:transparent;
-    box-shadow:0 8px 24px -10px rgba(73,230,255,.9)}
-  nav button .ic{font-size:15px}
+.card {
+  position: relative;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-xl);
+  background: var(--s1);
+  box-shadow: var(--lift-1);
+}
 
-  .view{display:none;animation:fade .35s ease}
-  .view.active{display:block}
-  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 26%,
+    rgba(255, 255, 255, 0.05) 72%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
 
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:18px;backdrop-filter:blur(8px)}
-  .grid{display:grid;gap:14px}
-  .g3{grid-template-columns:repeat(3,1fr)}
-  .g2{grid-template-columns:repeat(2,1fr)}
-  @media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+.card + .card {
+  margin-top: var(--sp-4);
+}
 
-  h2.sec{font-size:15px;margin:0 0 10px;color:var(--cyan);letter-spacing:.04em;display:flex;align-items:center;gap:8px}
-  .muted{color:var(--muted)}
-  .small{font-size:12px}
+.grid {
+  display: grid;
+  gap: var(--sp-3);
+}
 
-  /* dashboard */
-  .hero{padding:26px;margin-bottom:16px;position:relative;overflow:hidden}
-  .hero h2{font-size:24px;margin:0 0 6px;background:linear-gradient(90deg,#fff,#9fe8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .hero p{margin:0;color:var(--muted);font-size:14px}
-  .stat{display:flex;gap:18px;margin-top:18px;flex-wrap:wrap}
-  .stat .chip{border:1px solid var(--line);border-radius:12px;padding:8px 14px;background:var(--panel2);font-size:12px}
-  .stat .chip b{color:var(--cyan);font-size:16px;font-variant-numeric:tabular-nums}
-  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-  @media(max-width:760px){.quick{grid-template-columns:repeat(2,1fr)}}
-  .quick button{cursor:pointer;font-family:inherit;text-align:left;border:1px solid var(--line);background:var(--panel2);
-    border-radius:14px;padding:14px;color:var(--txt);transition:.18s}
-  .quick button:hover{transform:translateY(-2px);border-color:rgba(73,230,255,.5);box-shadow:0 12px 28px -16px rgba(73,230,255,.6)}
-  .quick .qic{font-size:22px;display:block;margin-bottom:6px}
-  .quick .qt{font-weight:700;font-size:14px}
-  .quick .qd{font-size:11.5px;color:var(--muted)}
+.g3 {
+  grid-template-columns: repeat(3, 1fr);
+}
 
-  /* games */
-  .game-card{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel2);transition:.2s}
-  .game-card:hover{transform:translateY(-3px);border-color:rgba(160,107,255,.5);box-shadow:0 18px 40px -20px rgba(160,107,255,.6)}
-  .game-cover{height:110px;display:flex;align-items:center;justify-content:center;font-size:44px;
-    background:linear-gradient(135deg,rgba(73,230,255,.12),rgba(160,107,255,.12))}
-  .game-body{padding:12px 14px}
-  .game-body h3{margin:0 0 4px;font-size:15px}
-  .game-body p{margin:0 0 10px;font-size:12px;color:var(--muted)}
-  .btn{cursor:pointer;font-family:inherit;border:1px solid transparent;border-radius:10px;padding:8px 14px;font-weight:700;font-size:13px;
-    background:linear-gradient(135deg,#49e6ff,#7bd0ff);color:#04121a;transition:.15s}
-  .btn:hover{filter:brightness(1.08)}
-  .btn.ghost{background:transparent;color:var(--muted);border-color:var(--line)}
-  .btn.ghost:hover{color:var(--txt);border-color:rgba(120,160,255,.4)}
+.g2 {
+  grid-template-columns: repeat(2, 1fr);
+}
 
-  /* game modal */
-  .overlay{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:16px;
-    background:rgba(3,6,14,.82);backdrop-filter:blur(6px)}
-  .overlay.show{display:flex}
-  .modal{background:#0a1024;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);
-    max-width:560px;width:100%;max-height:92vh;overflow:auto;padding:18px}
-  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-  .modal-head h3{margin:0;font-size:16px;color:var(--cyan)}
-  .x{cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;width:34px;height:34px;font-size:16px}
-  .x:hover{color:var(--txt)}
-  canvas.game{display:block;margin:0 auto;background:#060a16;border-radius:12px;border:1px solid var(--line);max-width:100%}
-  .game-bar{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}
-  .scorebadge{font-size:13px;color:var(--gold);font-variant-numeric:tabular-nums}
+/* 小游戏：自适应列数，窄屏自然回落到 3 / 2 / 1 */
+.games {
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+}
 
-  /* 2048 */
-  .g2048{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(340px,86vw);margin:0 auto;
-    background:rgba(73,230,255,.06);padding:8px;border-radius:12px;border:1px solid var(--line)}
-  .tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(14px,4vw,22px);
-    border-radius:8px;background:rgba(255,255,255,.05);color:#dbe6ff;transition:.12s}
-  .t2{background:#1b2a52}.t4{background:#20356b}.t8{background:#2a4a8f}.t16{background:#345aa8}
-  .t32{background:#3d6ac4}.t64{background:#49e6ff;color:#04121a}.t128{background:#7bd0ff;color:#04121a}
-  .t256{background:#a06bff;color:#fff}.t512{background:#b98bff;color:#fff}.t1024{background:#f3c969;color:#1a1400}
-  .t2048{background:linear-gradient(135deg,#f3c969,#ffdf8a);color:#1a1400}
-  /* memory */
-  .memgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(360px,88vw);margin:0 auto}
-  .mcard{aspect-ratio:1;border-radius:10px;background:linear-gradient(135deg,#16224a,#1b2f66);border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:.18s;user-select:none}
-  .mcard.flip{background:rgba(73,230,255,.14);border-color:rgba(73,230,255,.5)}
-  .mcard.done{background:rgba(55,224,160,.16);border-color:rgba(55,224,160,.5);cursor:default}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
 
-  /* notes */
-  .note-form{display:grid;gap:8px;margin-bottom:14px}
-  .note-form input,.note-form textarea,.ai-input{font-family:inherit;width:100%;background:#0a1226;border:1px solid var(--line);
-    border-radius:10px;color:var(--txt);padding:10px 12px;font-size:13.5px;outline:none}
-  .note-form textarea{min-height:64px;resize:vertical}
-  .note-form input:focus,.note-form textarea:focus,.ai-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(73,230,255,.18)}
-  .note-list{display:grid;gap:10px}
-  .note-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel2);position:relative}
-  .note-item h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:8px}
-  .note-item .type{font-size:10px;padding:1px 8px;border-radius:999px;background:rgba(73,230,255,.14);color:var(--cyan);border:1px solid rgba(73,230,255,.3)}
-  .note-item p{margin:0;font-size:12.5px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
-  .note-item .del{position:absolute;top:10px;right:10px;cursor:pointer;color:var(--muted);background:transparent;border:none;font-size:14px}
-  .note-item .del:hover{color:var(--bad)}
-  .file-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2)}
-  .file-item a{color:var(--cyan);text-decoration:none;font-weight:600;font-size:13.5px}
-  .file-item a:hover{text-decoration:underline}
+/* 行内的控件按内容定宽，只有显式 flex:1 的才撑满 */
+.row > .field {
+  width: auto;
+  flex: 0 1 auto;
+}
 
-  /* AI chat */
-  .chat{display:flex;flex-direction:column;height:min(60vh,520px)}
-  .msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px}
-  .msg{max-width:82%;padding:10px 13px;border-radius:14px;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
-  .msg.user{align-self:flex-end;background:linear-gradient(135deg,#1c3a6e,#254d86);border:1px solid rgba(73,230,255,.25)}
-  .msg.bot{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
-  .msg.sys{align-self:center;color:var(--muted);font-size:12px;background:transparent}
-  .chat-input{display:flex;gap:8px;margin-top:10px}
-  .chat-input textarea{flex:1;min-height:44px;max-height:120px;resize:none}
+/* ═══════════════ 章节标题：右侧一条渐隐发丝 ═══════════════ */
 
-  footer{margin-top:26px;text-align:center;color:var(--muted);font-size:11.5px}
-  ::-webkit-scrollbar{width:8px;height:8px}
-  ::-webkit-scrollbar-thumb{background:rgba(120,160,255,.25);border-radius:8px}
+h2.sec {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font);
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  color: var(--txt-strong);
+}
+
+h2.sec::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 24px;
+  background: linear-gradient(90deg, var(--hair-strong), transparent);
+}
+
+/* ═══════════════ 驾驶舱 ═══════════════ */
+
+.hero {
+  padding: var(--sp-8) var(--sp-6);
+  overflow: hidden;
+  background:
+    radial-gradient(118% 92% at 10% -6%, rgba(73, 230, 255, 0.058), transparent 62%),
+    var(--s1);
+}
+
+.hero .display {
+  margin-top: var(--sp-3);
+}
+
+.hero .eyebrow {
+  color: var(--cyan);
+  opacity: 0.72;
+}
+
+.stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: var(--s2);
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip b {
+  font: 600 13.5px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.quick button {
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  padding: var(--sp-4);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  color: var(--txt);
+  transition: border-color var(--t) var(--ease),
+    background-color var(--t) var(--ease), transform var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.quick button:hover {
+  background: var(--s2);
+  border-color: var(--hair-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
+}
+
+.quick .qic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: var(--sp-2);
+  font-size: 16px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s2);
+}
+
+.quick .qt {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.quick .qd {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+/* ═══════════════ 小游戏 ═══════════════ */
+
+.game-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  box-shadow: var(--lift-1);
+  transition: border-color var(--t) var(--ease), transform var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.game-card:hover {
+  border-color: var(--hair-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
+}
+
+.game-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 104px;
+  font-size: 38px;
+  background:
+    radial-gradient(90% 120% at 50% 120%, rgba(73, 230, 255, 0.08), transparent 68%),
+    var(--s2);
+  border-bottom: 1px solid var(--hair);
+}
+
+.game-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+
+.game-body h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  color: var(--txt-strong);
+}
+
+.game-body p {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 12px;
+  line-height: 1.62;
+  color: var(--dim);
+}
+
+.game-body .row {
+  margin-top: var(--sp-1);
+}
+
+/* ═══════════════ 按钮 ═══════════════ */
+
+.btn {
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--cyan);
+  color: #04121a;
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.btn:hover {
+  background: #7bd9ff;
+}
+
+.btn:active {
+  background: var(--cyan-dim, #2aa8bd);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--hair);
+}
+
+.btn.ghost:hover {
+  color: var(--txt);
+  border-color: var(--hair-strong);
+  background: var(--s2);
+}
+
+/* ═══════════════ 表单 ═══════════════ */
+
+.field {
+  font-family: var(--font);
+  font-size: 13.5px;
+  color: var(--txt);
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  outline: none;
+  transition: border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.field::placeholder {
+  color: var(--dim);
+}
+
+.field:hover {
+  border-color: var(--hair-strong);
+}
+
+.field:focus {
+  border-color: var(--hair-accent);
+  box-shadow: 0 0 0 3px rgba(73, 230, 255, 0.12);
+}
+
+textarea.field {
+  min-height: 68px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+select.field {
+  cursor: pointer;
+  padding-right: 30px;
+}
+
+.note-form {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.hint {
+  align-self: center;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.hint b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ═══════════════ 资料库 / 留言列表 ═══════════════ */
+
+.note-list {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.note-item {
+  position: relative;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  transition: border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.note-item:hover {
+  border-color: var(--hair-strong);
+  background: var(--s2);
+}
+
+.note-item h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 4px;
+  padding-right: 26px;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: var(--txt-strong);
+}
+
+.note-item .type {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border: 1px solid var(--hair-accent);
+  border-radius: var(--r-full);
+  background: var(--cyan-soft);
+  font: 500 10px/1.6 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+}
+
+.note-item p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.66;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-item .del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  font-size: 13px;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.note-item .del:hover {
+  color: var(--bad);
+  border-color: var(--hair);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s1);
+  font-size: 13px;
+}
+
+.file-item a {
+  color: var(--cyan);
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
+.file-item > .small.muted {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+/* ═══════════════ AI 助手 ═══════════════ */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: min(52vh, 440px);
+}
+
+.msgs {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--canvas);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.03);
+}
+
+.msg {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: var(--r-lg);
+  font-size: 13.5px;
+  line-height: 1.66;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg.user {
+  align-self: flex-end;
+  border: 1px solid var(--hair-accent);
+  background: var(--s3);
+  color: var(--txt-strong);
+  border-bottom-right-radius: var(--r-xs);
+}
+
+.msg.bot {
+  align-self: flex-start;
+  border: 1px solid var(--hair);
+  background: var(--s1);
+  border-bottom-left-radius: var(--r-xs);
+}
+
+.msg.sys {
+  align-self: center;
+  max-width: 90%;
+  padding: 3px 10px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: transparent;
+  font: 500 11px/1.6 var(--mono);
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+.chat-input {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair);
+}
+
+.chat-input textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  resize: none;
+}
+
+.kbd {
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.02em;
+  padding: 2px 5px;
+  border: 1px solid var(--hair-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-xs);
+  background: var(--s2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ═══════════════ 页脚 ═══════════════ */
+
+footer {
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+  text-align: center;
+  font: 500 11px/1.7 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+/* ═══════════════ 游戏模态 ═══════════════ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: rgba(4, 6, 13, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.overlay.show {
+  display: flex;
+}
+
+.modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow: auto;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--r-xl);
+  background: var(--s2);
+  box-shadow: var(--lift-2);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--hair);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--txt-strong);
+}
+
+.x {
+  cursor: pointer;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.x:hover {
+  color: var(--txt);
+  border-color: var(--hair-strong);
+}
+
+canvas.game {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: #060a16;
+}
+
+.game-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair);
+  flex-wrap: wrap;
+}
+
+.scorebadge {
+  font: 600 13px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: var(--gold);
+}
+
+/* ═══════════════ 内嵌小游戏 ═══════════════ */
+
+.g2048 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(340px, 86vw);
+  margin: 0 auto;
+  padding: 8px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+}
+
+.tile {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.045);
+  font: 700 clamp(14px, 4vw, 22px) / 1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+  transition: background-color 120ms var(--ease), color 120ms var(--ease);
+}
+
+.t2 {
+  background: #17203a;
+}
+.t4 {
+  background: #1c2a4d;
+}
+.t8 {
+  background: #244070;
+}
+.t16 {
+  background: #2d5490;
+}
+.t32 {
+  background: #3568ae;
+}
+.t64 {
+  background: #49e6ff;
+  color: #04121a;
+}
+.t128 {
+  background: #7bd9ff;
+  color: #04121a;
+}
+.t256 {
+  background: #a06bff;
+  color: #fff;
+}
+.t512 {
+  background: #b98bff;
+  color: #fff;
+}
+.t1024 {
+  background: #f3c969;
+  color: #1a1400;
+}
+.t2048 {
+  background: linear-gradient(135deg, #f3c969, #ffe8a8);
+  color: #1a1400;
+}
+
+.memgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(360px, 88vw);
+  margin: 0 auto;
+}
+
+.mcard {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s3);
+  font-size: 25px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--t) var(--ease),
+    border-color var(--t) var(--ease), transform var(--t) var(--ease);
+}
+
+.mcard:hover {
+  border-color: var(--hair-strong);
+  transform: translateY(-1px);
+}
+
+.mcard.flip {
+  background: var(--cyan-soft);
+  border-color: var(--hair-accent);
+}
+
+.mcard.done {
+  background: rgba(55, 224, 160, 0.14);
+  border-color: rgba(55, 224, 160, 0.45);
+  cursor: default;
+  transform: none;
+}
+
+/* ═══════════════ 响应式 ═══════════════ */
+
+@media (max-width: 900px) {
+  .quick {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .wrap {
+    padding: var(--sp-4) var(--sp-3) var(--sp-8);
+  }
+  .g3,
+  .g2 {
+    grid-template-columns: 1fr;
+  }
+  .quick {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hero {
+    padding: var(--sp-6) var(--sp-4);
+  }
+  nav {
+    border-radius: var(--r-lg);
+  }
+  .brand h1 {
+    font-size: 17px;
+  }
+  .clock {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ═══════════════ 减弱动态 ═══════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -164,11 +1190,11 @@
 <div class="glow"></div>
 
 <div class="wrap">
-  <header>
+  <header class="top">
     <div class="logo">XS</div>
     <div class="brand">
       <h1>XS 空间站</h1>
-      <p>开发者个人空间 · 小游戏 · 资料库 · AI 助手</p>
+      <p class="tagline">开发者个人空间 · 小游戏 · 资料库 · AI 助手</p>
     </div>
     <div class="clock" id="clock">--:--:--</div>
   </header>
@@ -185,14 +1211,15 @@
   <!-- 驾驶舱 -->
   <section class="view active" id="view-dash">
     <div class="card hero">
-      <h2>欢迎登舰，指挥官 👨‍🚀</h2>
-      <p>这里是你的私人空间站：放松玩几把小游戏、归档技术资料、或让 AI 助手搭把手。</p>
+      <p class="eyebrow">XS-06 · LOW ORBIT DECK</p>
+      <h2 class="display">欢迎登舰，指挥官 👨‍🚀</h2>
+      <p class="lead">这里是你的私人空间站：放松玩几把小游戏、归档技术资料、或让 AI 助手搭把手。</p>
       <div class="stat">
         <span class="chip">已存资料 <b id="statNotes">0</b> 条</span>
         <span class="chip">小游戏 <b>4</b> 款</span>
         <span class="chip">在线时长 <b id="statUptime">0</b> 分</span>
-        <span class="chip">今日访问 <b id="statToday">0</b> <span class="small mold">次</span></span>
-        <span class="chip">总访问 <b id="statTotal">0</b> <span class="small mold">次</span></span>
+        <span class="chip">今日访问 <b id="statToday">0</b> 次</span>
+        <span class="chip">总访问 <b id="statTotal">0</b> 次</span>
       </div>
     </div>
     <div class="quick" id="quick">
@@ -207,18 +1234,39 @@
   <!-- 小游戏 -->
   <section class="view" id="view-games">
     <h2 class="sec">🎮 我开发的小游戏</h2>
-    <div class="grid g3">
-      <div class="game-card"><div class="game-cover">🐍</div><div class="game-body"><h3>贪吃蛇</h3><p>方向键 / 按钮控制，吃到果实变长，别撞墙撞自己。</p><button class="btn" data-game="snake">开始</button></div></div>
-      <div class="game-card"><div class="game-cover">🔢</div><div class="game-body"><h3>2048</h3><p>方向键合并相同数字，凑出 2048。</p><button class="btn" data-game="g2048">开始</button></div></div>
-      <div class="game-card"><div class="game-cover">🃏</div><div class="game-body"><h3>记忆翻牌</h3><p>翻开配对相同的图标，考验记忆力。</p><button class="btn" data-game="memory">开始</button></div></div>
+    <div class="grid games">
+      <div class="game-card">
+        <div class="game-cover">🐍</div>
+        <div class="game-body">
+          <h3>贪吃蛇</h3>
+          <p>方向键 / 按钮控制，吃到果实变长，别撞墙撞自己。</p>
+          <div class="row"><button class="btn" data-game="snake">开始</button></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🔢</div>
+        <div class="game-body">
+          <h3>2048</h3>
+          <p>方向键合并相同数字，凑出 2048。</p>
+          <div class="row"><button class="btn" data-game="g2048">开始</button></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🃏</div>
+        <div class="game-body">
+          <h3>记忆翻牌</h3>
+          <p>翻开配对相同的图标，考验记忆力。</p>
+          <div class="row"><button class="btn" data-game="memory">开始</button></div>
+        </div>
+      </div>
       <div class="game-card">
         <div class="game-cover">🎯</div>
         <div class="game-body">
           <h3>零号竞技场 · FPS</h3>
           <p>我做的 3D 枪战竞技场：8 人乱斗 · 3 张地图 · WASD 移动 / 鼠标射击。</p>
-          <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="row">
             <button class="btn" data-game="arena">全屏开玩</button>
-            <a class="btn ghost" href="./games/arena-zero.zip" download style="text-decoration:none;display:inline-flex;align-items:center">下载</a>
+            <a class="btn ghost" href="./games/arena-zero.zip" download>下载</a>
           </div>
         </div>
       </div>
@@ -228,11 +1276,11 @@
   <!-- 资料库 -->
   <section class="view" id="view-notes">
     <h2 class="sec">📚 资料库</h2>
-    <div class="card" style="margin-bottom:14px">
+    <div class="card">
       <div class="note-form">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input id="noteTitle" placeholder="标题（如：某知识点的要点）" style="flex:1;min-width:160px" />
-          <select id="noteCat" style="font-family:inherit;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:10px 12px;font-size:13.5px;outline:none">
+        <div class="row">
+          <input class="field" id="noteTitle" placeholder="标题（如：某知识点的要点）" style="flex:1;min-width:160px" />
+          <select class="field" id="noteCat" style="flex:0 0 auto;min-width:132px">
             <option value="笔记">📝 笔记</option>
             <option value="链接">🔗 链接</option>
             <option value="资料">📦 资料</option>
@@ -240,17 +1288,17 @@
             <option value="待办">✅ 待办</option>
           </select>
         </div>
-        <textarea id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
-        <div style="display:flex;gap:8px">
+        <textarea class="field" id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
+        <div class="row">
           <button class="btn" id="addNote">保存资料</button>
-          <span class="small muted" id="noteHint" style="align-self:center">资料库：<b id="noteSource">连接中…</b>（Supabase 云数据库·跨设备）</span>
+          <span class="hint" id="noteHint">资料库：<b id="noteSource">连接中…</b>（Supabase 云数据库·跨设备）</span>
         </div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:14px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="noteSearch" placeholder="🔍 搜索标题 / 内容…" style="font-family:inherit;flex:1;min-width:180px;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:9px 12px;font-size:13.5px;outline:none" />
-        <select id="noteFilter" style="font-family:inherit;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:9px 12px;font-size:13.5px;outline:none">
+    <div class="card">
+      <div class="row">
+        <input class="field" id="noteSearch" placeholder="🔍 搜索标题 / 内容…" style="flex:1;min-width:180px" />
+        <select class="field" id="noteFilter" style="flex:0 0 auto;min-width:132px">
           <option value="">全部分类</option>
           <option value="笔记">📝 笔记</option>
           <option value="链接">🔗 链接</option>
@@ -261,27 +1309,27 @@
       </div>
     </div>
     <div class="note-list" id="noteList"></div>
-    <h2 class="sec" style="margin-top:20px">📎 文件区</h2>
-    <div class="card" style="margin-bottom:12px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <input id="upFile" type="file" style="flex:1;min-width:200px;font-family:inherit;background:#0a1226;border:1px solid var(--line);border-radius:10px;color:var(--txt);padding:8px 10px;font-size:13px" />
+    <h2 class="sec" style="margin-top:26px">📎 文件区</h2>
+    <div class="card">
+      <div class="row">
+        <input class="field" id="upFile" type="file" style="flex:1;min-width:200px;padding:7px 10px" />
         <button class="btn" id="upFileBtn">上传到云</button>
-        <span class="small muted" id="upHint" style="align-self:center"></span>
+        <span class="hint" id="upHint"></span>
       </div>
     </div>
-    <div class="note-list" id="fileList"><div class="small muted">加载中…</div></div>
+    <div class="note-list" id="fileList"><div class="small dim">加载中…</div></div>
   </section>
 
   <!-- 留言板（Supabase 云存储） -->
   <section class="view" id="view-board">
     <h2 class="sec">💬 留言板</h2>
-    <div class="card" style="margin-bottom:14px">
+    <div class="card">
       <div class="note-form">
-        <input id="msgName" placeholder="你的昵称（选填）" maxlength="30" />
-        <textarea id="msgBody" placeholder="给站长说点什么… 建议 / 反馈 / 夸夸都行" maxlength="500"></textarea>
-        <div style="display:flex;gap:8px">
+        <input class="field" id="msgName" placeholder="你的昵称（选填）" maxlength="30" />
+        <textarea class="field" id="msgBody" placeholder="给站长说点什么… 建议 / 反馈 / 夸夸都行" maxlength="500"></textarea>
+        <div class="row">
           <button class="btn" id="addMsg">留下足迹</button>
-          <span class="small muted" id="msgHint" style="align-self:center">留言保存到 Supabase 云数据库，公开可看。</span>
+          <span class="hint" id="msgHint">留言保存到 Supabase 云数据库，公开可看。</span>
         </div>
       </div>
     </div>
@@ -297,11 +1345,11 @@
           <div class="msg bot">你好，我是空间站 AI 助手。可以帮你回答问题、解释概念、写作润色。想聊点什么？</div>
         </div>
         <div class="chat-input">
-          <textarea class="ai-input" id="aiInput" placeholder="输入你的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <textarea class="field" id="aiInput" placeholder="输入你的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
           <button class="btn" id="aiSend">发送</button>
         </div>
       </div>
-      <p class="small muted" style="margin:10px 0 0">AI 由 Cloudflare Worker 提供（与法考 App 共用后端）。若提示未配置密钥，请联系站长在 Worker 设置 DEEPSEEK_API_KEY。</p>
+      <p class="small dim" style="margin:12px 0 0">AI 由 Cloudflare Worker 提供（与法考 App 共用后端）。若提示未配置密钥，请联系站长在 Worker 设置 <span class="kbd">DEEPSEEK_API_KEY</span>。</p>
     </div>
   </section>
 
@@ -310,13 +1358,13 @@
     <h2 class="sec">✨ 关于空间站</h2>
     <div class="card">
       <p>这是我（<b>DADA-dcc</b>）的个人空间站，用来收纳我开发的小游戏、技术资料，并内置一个 AI 助手。</p>
-      <p class="muted small">纯前端单页应用 · 数据本地存储 · 部署于 GitHub Pages · 域名 xs06.is-a.dev</p>
-      <div class="stat" style="margin-top:14px">
+      <p class="dim small">纯前端单页应用 · 数据本地存储 · 部署于 GitHub Pages · 域名 xs06.is-a.dev</p>
+      <div class="stat">
         <span class="chip">前端 <b>HTML/CSS/JS</b></span>
         <span class="chip">托管 <b>GitHub Pages</b></span>
         <span class="chip">AI <b>Cloudflare Worker</b></span>
       </div>
-      <p style="margin-top:16px"><a class="btn ghost" href="https://github.com/DADA-dcc" target="_blank" rel="noopener">我的 GitHub →</a></p>
+      <p style="margin:16px 0 0"><a class="btn ghost" href="https://github.com/DADA-dcc" target="_blank" rel="noopener">我的 GitHub →</a></p>
     </div>
   </section>
 
@@ -326,12 +1374,11 @@
 <!-- game overlay -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <div class="modal-head"><h3 id="gameTitle">游戏</h3><button class="x" id="closeOverlay">✕</button></div>
+    <div class="modal-head"><h3 id="gameTitle">游戏</h3><button class="x" id="closeOverlay" aria-label="关闭">✕</button></div>
     <div id="gameMount"></div>
     <div class="game-bar" id="gameBar"></div>
   </div>
 </div>
-
 <script>
 /* ============ 基础：星空 / 时钟 / 导航 ============ */
 (function starfield(){
@@ -415,7 +1462,7 @@ function renderNotes(){
   });
   const box=document.getElementById('noteList'); box.innerHTML='';
   document.getElementById('statNotes').textContent=notesCache.length;
-  if(!arr.length){ box.innerHTML='<div class="small muted">没有匹配的资料。</div>'; return; }
+  if(!arr.length){ box.innerHTML='<div class="small dim">没有匹配的资料。</div>'; return; }
   arr.forEach(n=>{
     const body=String(n.body||''); const isLink=/^https?:\/\//i.test(body.trim()); const cat=n.cat||'笔记';
     const el=document.createElement('div'); el.className='note-item';
@@ -469,7 +1516,7 @@ async function loadFiles(){
       try{ const parsed=JSON.parse(c.body||''); if(parsed&&parsed.name){ name=parsed.name; data=parsed.data; } }catch(e){}
       return {name:name, data:data, id:c.id};
     }).concat((local||[]).map(f=>({name:f.name||f.path, path:f.path, desc:f.desc})));
-    if(!items.length){ box.innerHTML='<div class="small muted">暂无文件。可上传到云端，或放仓库 resources/ 并在 index.json 登记。</div>'; return; }
+    if(!items.length){ box.innerHTML='<div class="small dim">暂无文件。可上传到云端，或放仓库 resources/ 并在 index.json 登记。</div>'; return; }
     items.forEach(f=>{
       const el=document.createElement('div'); el.className='file-item';
       const title='<span>📄</span>';
@@ -481,7 +1528,7 @@ async function loadFiles(){
       }
       box.appendChild(el);
     });
-  }catch(e){ box.innerHTML='<div class="small muted">文件区加载失败</div>'; }
+  }catch(e){ box.innerHTML='<div class="small dim">文件区加载失败</div>'; }
 }
 async function uploadFile(){
   const inp=document.getElementById('upFile');
@@ -522,14 +1569,14 @@ async function loadMessages(){
     document.getElementById('statTotal').textContent=visits.length;
     document.getElementById('statToday').textContent=visits.filter(x=>String(x.name||'').indexOf(today)>=0).length;
     const box=document.getElementById('msgList'); box.innerHTML='';
-    if(!msgs.length){ box.innerHTML='<div class="small muted">还没有留言，第一个说点啥？</div>'; }
+    if(!msgs.length){ box.innerHTML='<div class="small dim">还没有留言，第一个说点啥？</div>'; }
     msgs.forEach(m=>{
       const el=document.createElement('div'); el.className='note-item';
       const dt=new Date(m.ts||Date.now()).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
       el.innerHTML=`<h4>${esc(m.name||'匿名')} <span class="small muted" style="font-weight:400">${esc(dt)}</span></h4><p>${esc(m.body)}</p>`;
       box.appendChild(el);
     });
-  }catch(e){ const box=document.getElementById('msgList'); box.innerHTML='<div class="small muted">留言板暂不可用（'+e.message+'）</div>'; }
+  }catch(e){ const box=document.getElementById('msgList'); box.innerHTML='<div class="small dim">留言板暂不可用（'+e.message+'）</div>'; }
 }
 async function addMessage(){
   const name=document.getElementById('msgName').value.trim();
