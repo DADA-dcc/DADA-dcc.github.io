@@ -177,6 +177,7 @@
     <button data-view="dash" class="active"><span class="ic">🚀</span>驾驶舱</button>
     <button data-view="games"><span class="ic">🎮</span>小游戏</button>
     <button data-view="notes"><span class="ic">📚</span>资料库</button>
+    <button data-view="board"><span class="ic">💬</span>留言板</button>
     <button data-view="ai"><span class="ic">🤖</span>AI 助手</button>
     <button data-view="about"><span class="ic">✨</span>关于</button>
   </nav>
@@ -195,6 +196,7 @@
     <div class="quick" id="quick">
       <button data-go="games"><span class="qic">🎮</span><span class="qt">开玩小游戏</span><span class="qd">贪吃蛇 / 2048 / 记忆翻牌 / 零号竞技场</span></button>
       <button data-go="notes"><span class="qic">📚</span><span class="qt">打开资料库</span><span class="qd">笔记、链接、文件归档</span></button>
+      <button data-go="board"><span class="qic">💬</span><span class="qt">去留言板</span><span class="qd">留下足迹 / 看访客留言</span></button>
       <button data-go="ai"><span class="qic">🤖</span><span class="qt">呼叫 AI 助手</span><span class="qd">提问、拆解、写作</span></button>
       <button data-go="about"><span class="qic">✨</span><span class="qt">关于空间站</span><span class="qd">开发者与技术栈</span></button>
     </div>
@@ -259,6 +261,22 @@
     <div class="note-list" id="noteList"></div>
     <h2 class="sec" style="margin-top:20px">📎 文件区</h2>
     <div class="note-list" id="fileList"><div class="small muted">加载中…</div></div>
+  </section>
+
+  <!-- 留言板（Supabase 云存储） -->
+  <section class="view" id="view-board">
+    <h2 class="sec">💬 留言板</h2>
+    <div class="card" style="margin-bottom:14px">
+      <div class="note-form">
+        <input id="msgName" placeholder="你的昵称（选填）" maxlength="30" />
+        <textarea id="msgBody" placeholder="给站长说点什么… 建议 / 反馈 / 夸夸都行" maxlength="500"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="addMsg">留下足迹</button>
+          <span class="small muted" id="msgHint" style="align-self:center">留言保存到 Supabase 云数据库，公开可看。</span>
+        </div>
+      </div>
+    </div>
+    <div class="note-list" id="msgList"></div>
   </section>
 
   <!-- AI 助手 -->
@@ -412,6 +430,37 @@ loadNotes();
       box.appendChild(el); });
   }).catch(()=>{ document.getElementById('fileList').innerHTML='<div class="small muted">暂无文件清单。</div>'; });
 })();
+
+/* ============ 留言板（Supabase 云） ============ */
+const MSG_TBL=SUPA_URL+'/rest/v1/messages';
+async function loadMessages(){
+  try{
+    const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const list=await res.json();
+    const box=document.getElementById('msgList'); box.innerHTML='';
+    if(!list.length){ box.innerHTML='<div class="small muted">还没有留言，第一个说点啥？</div>'; }
+    list.forEach(m=>{
+      const el=document.createElement('div'); el.className='note-item';
+      const dt=new Date(m.ts||Date.now()).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      el.innerHTML=`<h4>${esc(m.name||'匿名')} <span class="small muted" style="font-weight:400">${esc(dt)}</span></h4><p>${esc(m.body)}</p>`;
+      box.appendChild(el);
+    });
+  }catch(e){ const box=document.getElementById('msgList'); box.innerHTML='<div class="small muted">留言板暂不可用（'+e.message+'）</div>'; }
+}
+async function addMessage(){
+  const name=document.getElementById('msgName').value.trim();
+  const body=document.getElementById('msgBody').value.trim();
+  if(!body){ return; }
+  try{
+    const res=await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({name:name||'匿名',body:body,ts:Date.now()})});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    document.getElementById('msgName').value=''; document.getElementById('msgBody').value='';
+    await loadMessages();
+  }catch(e){ alert('留言失败：'+e.message); }
+}
+document.getElementById('addMsg').addEventListener('click',addMessage);
+loadMessages();
 
 /* ============ AI 助手 ============ */
 const AI_BASE='https://round-unit-93bd.xsb13258256719.workers.dev';
