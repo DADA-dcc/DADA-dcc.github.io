@@ -1,45 +1,484 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DADA-dcc | Developer</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>XS 空间站 · 开发者个人空间</title>
+<meta name="description" content="XS 空间站：一个开发者的个人空间，收录小游戏、技术资料与 AI 助手。" />
 <style>
-  :root { color-scheme: dark; }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",monospace,sans-serif; background:#0d1117; color:#e6edf3; line-height:1.6; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; }
-  .card { max-width:720px; width:100%; background:#161b22; border:1px solid #30363d; border-radius:12px; padding:2.5rem; box-shadow:0 8px 30px rgba(0,0,0,.4); }
-  .avatar { width:96px; height:96px; border-radius:50%; background:linear-gradient(135deg,#58a6ff,#bc8cff); display:flex; align-items:center; justify-content:center; font-size:2.4rem; font-weight:700; color:#0d1117; margin-bottom:1rem; }
-  h1 { font-size:1.8rem; margin-bottom:.3rem; }
-  .handle { color:#8b949e; font-size:1rem; margin-bottom:1.2rem; }
-  p { margin-bottom:1rem; }
-  .tags { display:flex; flex-wrap:wrap; gap:.5rem; margin:1.4rem 0; }
-  .tag { background:#21262d; border:1px solid #30363d; border-radius:999px; padding:.3rem .8rem; font-size:.8rem; color:#79c0ff; }
-  .links { display:flex; gap:1.2rem; margin-top:1.5rem; }
-  .links a { color:#58a6ff; text-decoration:none; font-weight:500; }
-  .links a:hover { text-decoration:underline; }
-  footer { margin-top:1.5rem; color:#8b949e; font-size:.8rem; text-align:center; }
-  @media (max-width:520px){ .card{ padding:1.5rem; } }
+  :root{
+    --bg:#05070f; --panel:rgba(14,20,38,.72); --panel2:rgba(20,28,52,.66);
+    --line:rgba(120,160,255,.18); --cyan:#49e6ff; --violet:#a06bff; --gold:#f3c969;
+    --txt:#dbe6ff; --muted:#8fa2c7; --ok:#37e0a0; --bad:#ff6b8a;
+    --shadow:0 18px 50px -22px rgba(0,0,0,.9);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--txt); background:var(--bg); overflow-x:hidden; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  #stars{position:fixed;inset:0;z-index:0;display:block}
+  .glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(60% 45% at 15% 8%, rgba(91,73,255,.20), transparent 60%),
+      radial-gradient(50% 40% at 88% 20%, rgba(73,230,255,.14), transparent 60%),
+      radial-gradient(70% 60% at 50% 120%, rgba(160,107,255,.14), transparent 60%);
+  }
+  .wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:20px 16px 80px}
+
+  /* header */
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .logo{width:46px;height:46px;border-radius:14px;flex:0 0 auto;position:relative;
+    background:linear-gradient(135deg,#12224a,#1b2f66);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--cyan);
+    box-shadow:0 0 26px -6px rgba(73,230,255,.55)}
+  .logo::after{content:"";position:absolute;inset:-3px;border-radius:16px;border:1px solid rgba(73,230,255,.25);animation:pulse 3s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:.8}}
+  .brand h1{margin:0;font-size:19px;letter-spacing:.02em;
+    background:linear-gradient(90deg,#dbe6ff,#49e6ff 60%,#a06bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+  .clock{margin-left:auto;font-variant-numeric:tabular-nums;font-size:13px;color:var(--cyan);
+    border:1px solid var(--line);background:var(--panel);padding:6px 12px;border-radius:10px;white-space:nowrap}
+
+  /* nav */
+  nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  nav button{
+    font-family:inherit;cursor:pointer;border:1px solid var(--line);color:var(--muted);
+    background:var(--panel2);padding:9px 16px;border-radius:12px;font-size:13.5px;font-weight:600;
+    transition:.18s; display:inline-flex;align-items:center;gap:7px}
+  nav button:hover{color:var(--txt);border-color:rgba(120,160,255,.4)}
+  nav button.active{color:#04121a;background:linear-gradient(135deg,#49e6ff,#7bd0ff);border-color:transparent;
+    box-shadow:0 8px 24px -10px rgba(73,230,255,.9)}
+  nav button .ic{font-size:15px}
+
+  .view{display:none;animation:fade .35s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:18px;backdrop-filter:blur(8px)}
+  .grid{display:grid;gap:14px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+
+  h2.sec{font-size:15px;margin:0 0 10px;color:var(--cyan);letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+
+  /* dashboard */
+  .hero{padding:26px;margin-bottom:16px;position:relative;overflow:hidden}
+  .hero h2{font-size:24px;margin:0 0 6px;background:linear-gradient(90deg,#fff,#9fe8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{margin:0;color:var(--muted);font-size:14px}
+  .stat{display:flex;gap:18px;margin-top:18px;flex-wrap:wrap}
+  .stat .chip{border:1px solid var(--line);border-radius:12px;padding:8px 14px;background:var(--panel2);font-size:12px}
+  .stat .chip b{color:var(--cyan);font-size:16px;font-variant-numeric:tabular-nums}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.quick{grid-template-columns:repeat(2,1fr)}}
+  .quick button{cursor:pointer;font-family:inherit;text-align:left;border:1px solid var(--line);background:var(--panel2);
+    border-radius:14px;padding:14px;color:var(--txt);transition:.18s}
+  .quick button:hover{transform:translateY(-2px);border-color:rgba(73,230,255,.5);box-shadow:0 12px 28px -16px rgba(73,230,255,.6)}
+  .quick .qic{font-size:22px;display:block;margin-bottom:6px}
+  .quick .qt{font-weight:700;font-size:14px}
+  .quick .qd{font-size:11.5px;color:var(--muted)}
+
+  /* games */
+  .game-card{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel2);transition:.2s}
+  .game-card:hover{transform:translateY(-3px);border-color:rgba(160,107,255,.5);box-shadow:0 18px 40px -20px rgba(160,107,255,.6)}
+  .game-cover{height:110px;display:flex;align-items:center;justify-content:center;font-size:44px;
+    background:linear-gradient(135deg,rgba(73,230,255,.12),rgba(160,107,255,.12))}
+  .game-body{padding:12px 14px}
+  .game-body h3{margin:0 0 4px;font-size:15px}
+  .game-body p{margin:0 0 10px;font-size:12px;color:var(--muted)}
+  .btn{cursor:pointer;font-family:inherit;border:1px solid transparent;border-radius:10px;padding:8px 14px;font-weight:700;font-size:13px;
+    background:linear-gradient(135deg,#49e6ff,#7bd0ff);color:#04121a;transition:.15s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:transparent;color:var(--muted);border-color:var(--line)}
+  .btn.ghost:hover{color:var(--txt);border-color:rgba(120,160,255,.4)}
+
+  /* game modal */
+  .overlay{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;padding:16px;
+    background:rgba(3,6,14,.82);backdrop-filter:blur(6px)}
+  .overlay.show{display:flex}
+  .modal{background:#0a1024;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);
+    max-width:560px;width:100%;max-height:92vh;overflow:auto;padding:18px}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .modal-head h3{margin:0;font-size:16px;color:var(--cyan)}
+  .x{cursor:pointer;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;width:34px;height:34px;font-size:16px}
+  .x:hover{color:var(--txt)}
+  canvas.game{display:block;margin:0 auto;background:#060a16;border-radius:12px;border:1px solid var(--line);max-width:100%}
+  .game-bar{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .scorebadge{font-size:13px;color:var(--gold);font-variant-numeric:tabular-nums}
+
+  /* 2048 */
+  .g2048{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(340px,86vw);margin:0 auto;
+    background:rgba(73,230,255,.06);padding:8px;border-radius:12px;border:1px solid var(--line)}
+  .tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(14px,4vw,22px);
+    border-radius:8px;background:rgba(255,255,255,.05);color:#dbe6ff;transition:.12s}
+  .t2{background:#1b2a52}.t4{background:#20356b}.t8{background:#2a4a8f}.t16{background:#345aa8}
+  .t32{background:#3d6ac4}.t64{background:#49e6ff;color:#04121a}.t128{background:#7bd0ff;color:#04121a}
+  .t256{background:#a06bff;color:#fff}.t512{background:#b98bff;color:#fff}.t1024{background:#f3c969;color:#1a1400}
+  .t2048{background:linear-gradient(135deg,#f3c969,#ffdf8a);color:#1a1400}
+  /* memory */
+  .memgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:min(360px,88vw);margin:0 auto}
+  .mcard{aspect-ratio:1;border-radius:10px;background:linear-gradient(135deg,#16224a,#1b2f66);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;transition:.18s;user-select:none}
+  .mcard.flip{background:rgba(73,230,255,.14);border-color:rgba(73,230,255,.5)}
+  .mcard.done{background:rgba(55,224,160,.16);border-color:rgba(55,224,160,.5);cursor:default}
+
+  /* notes */
+  .note-form{display:grid;gap:8px;margin-bottom:14px}
+  .note-form input,.note-form textarea,.ai-input{font-family:inherit;width:100%;background:#0a1226;border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);padding:10px 12px;font-size:13.5px;outline:none}
+  .note-form textarea{min-height:64px;resize:vertical}
+  .note-form input:focus,.note-form textarea:focus,.ai-input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(73,230,255,.18)}
+  .note-list{display:grid;gap:10px}
+  .note-item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel2);position:relative}
+  .note-item h4{margin:0 0 4px;font-size:14px;display:flex;align-items:center;gap:8px}
+  .note-item .type{font-size:10px;padding:1px 8px;border-radius:999px;background:rgba(73,230,255,.14);color:var(--cyan);border:1px solid rgba(73,230,255,.3)}
+  .note-item p{margin:0;font-size:12.5px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+  .note-item .del{position:absolute;top:10px;right:10px;cursor:pointer;color:var(--muted);background:transparent;border:none;font-size:14px}
+  .note-item .del:hover{color:var(--bad)}
+  .file-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2)}
+  .file-item a{color:var(--cyan);text-decoration:none;font-weight:600;font-size:13.5px}
+  .file-item a:hover{text-decoration:underline}
+
+  /* AI chat */
+  .chat{display:flex;flex-direction:column;height:min(60vh,520px)}
+  .msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:6px 2px}
+  .msg{max-width:82%;padding:10px 13px;border-radius:14px;font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+  .msg.user{align-self:flex-end;background:linear-gradient(135deg,#1c3a6e,#254d86);border:1px solid rgba(73,230,255,.25)}
+  .msg.bot{align-self:flex-start;background:var(--panel2);border:1px solid var(--line)}
+  .msg.sys{align-self:center;color:var(--muted);font-size:12px;background:transparent}
+  .chat-input{display:flex;gap:8px;margin-top:10px}
+  .chat-input textarea{flex:1;min-height:44px;max-height:120px;resize:none}
+
+  footer{margin-top:26px;text-align:center;color:var(--muted);font-size:11.5px}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(120,160,255,.25);border-radius:8px}
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="avatar">D</div>
-    <h1>DADA-dcc</h1>
-    <div class="handle">@DADA-dcc &middot; Full-stack Developer</div>
-    <p>Hi, I'm DADA-dcc, a full-stack developer focused on building modern, maintainable and high-performance software. This is my personal site for sharing open-source projects, development practice and learning notes.</p>
-    <div class="tags">
-      <span class="tag">JavaScript / TypeScript</span>
-      <span class="tag">Node.js</span>
-      <span class="tag">Python</span>
-      <span class="tag">Linux / Docker</span>
-      <span class="tag">GitHub Actions</span>
-      <span class="tag">DevOps</span>
+<canvas id="stars"></canvas>
+<div class="glow"></div>
+
+<div class="wrap">
+  <header>
+    <div class="logo">XS</div>
+    <div class="brand">
+      <h1>XS 空间站</h1>
+      <p>开发者个人空间 · 小游戏 · 资料库 · AI 助手</p>
     </div>
-    <div class="links">
-      <a href="https://github.com/DADA-dcc" target="_blank" rel="noopener">GitHub</a>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <nav id="nav">
+    <button data-view="dash" class="active"><span class="ic">🚀</span>驾驶舱</button>
+    <button data-view="games"><span class="ic">🎮</span>小游戏</button>
+    <button data-view="notes"><span class="ic">📚</span>资料库</button>
+    <button data-view="ai"><span class="ic">🤖</span>AI 助手</button>
+    <button data-view="about"><span class="ic">✨</span>关于</button>
+  </nav>
+
+  <!-- 驾驶舱 -->
+  <section class="view active" id="view-dash">
+    <div class="card hero">
+      <h2>欢迎登舰，指挥官 👨‍🚀</h2>
+      <p>这里是你的私人空间站：放松玩几把小游戏、归档技术资料、或让 AI 助手搭把手。</p>
+      <div class="stat">
+        <span class="chip">已存资料 <b id="statNotes">0</b> 条</span>
+        <span class="chip">小游戏 <b>3</b> 款</span>
+        <span class="chip">在线时长 <b id="statUptime">0</b> 分</span>
+      </div>
     </div>
+    <div class="quick" id="quick">
+      <button data-go="games"><span class="qic">🎮</span><span class="qt">开玩小游戏</span><span class="qd">贪吃蛇 / 2048 / 记忆翻牌</span></button>
+      <button data-go="notes"><span class="qic">📚</span><span class="qt">打开资料库</span><span class="qd">笔记、链接、文件归档</span></button>
+      <button data-go="ai"><span class="qic">🤖</span><span class="qt">呼叫 AI 助手</span><span class="qd">提问、拆解、写作</span></button>
+      <button data-go="about"><span class="qic">✨</span><span class="qt">关于空间站</span><span class="qd">开发者与技术栈</span></button>
+    </div>
+  </section>
+
+  <!-- 小游戏 -->
+  <section class="view" id="view-games">
+    <h2 class="sec">🎮 我开发的小游戏</h2>
+    <div class="grid g3">
+      <div class="game-card"><div class="game-cover">🐍</div><div class="game-body"><h3>贪吃蛇</h3><p>方向键 / 按钮控制，吃到果实变长，别撞墙撞自己。</p><button class="btn" data-game="snake">开始</button></div></div>
+      <div class="game-card"><div class="game-cover">🔢</div><div class="game-body"><h3>2048</h3><p>方向键合并相同数字，凑出 2048。</p><button class="btn" data-game="g2048">开始</button></div></div>
+      <div class="game-card"><div class="game-cover">🃏</div><div class="game-body"><h3>记忆翻牌</h3><p>翻开配对相同的图标，考验记忆力。</p><button class="btn" data-game="memory">开始</button></div></div>
+    </div>
+  </section>
+
+  <!-- 资料库 -->
+  <section class="view" id="view-notes">
+    <h2 class="sec">📚 资料库</h2>
+    <div class="card" style="margin-bottom:14px">
+      <div class="note-form">
+        <input id="noteTitle" placeholder="标题（如：某知识点的要点）" />
+        <textarea id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="addNote">保存资料</button>
+          <span class="small muted" id="noteHint" style="align-self:center">资料保存在本机浏览器（localStorage）。</span>
+        </div>
+      </div>
+    </div>
+    <div class="note-list" id="noteList"></div>
+    <h2 class="sec" style="margin-top:20px">📎 文件区</h2>
+    <div class="note-list" id="fileList"><div class="small muted">加载中…</div></div>
+  </section>
+
+  <!-- AI 助手 -->
+  <section class="view" id="view-ai">
+    <h2 class="sec">🤖 AI 助手</h2>
+    <div class="card">
+      <div class="chat">
+        <div class="msgs" id="msgs">
+          <div class="msg bot">你好，我是空间站 AI 助手。可以帮你回答问题、解释概念、写作润色。想聊点什么？</div>
+        </div>
+        <div class="chat-input">
+          <textarea class="ai-input" id="aiInput" placeholder="输入你的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="btn" id="aiSend">发送</button>
+        </div>
+      </div>
+      <p class="small muted" style="margin:10px 0 0">AI 由 Cloudflare Worker 提供（与法考 App 共用后端）。若提示未配置密钥，请联系站长在 Worker 设置 DEEPSEEK_API_KEY。</p>
+    </div>
+  </section>
+
+  <!-- 关于 -->
+  <section class="view" id="view-about">
+    <h2 class="sec">✨ 关于空间站</h2>
+    <div class="card">
+      <p>这是我（<b>DADA-dcc</b>）的个人空间站，用来收纳我开发的小游戏、技术资料，并内置一个 AI 助手。</p>
+      <p class="muted small">纯前端单页应用 · 数据本地存储 · 部署于 GitHub Pages · 域名 xs06.is-a.dev</p>
+      <div class="stat" style="margin-top:14px">
+        <span class="chip">前端 <b>HTML/CSS/JS</b></span>
+        <span class="chip">托管 <b>GitHub Pages</b></span>
+        <span class="chip">AI <b>Cloudflare Worker</b></span>
+      </div>
+      <p style="margin-top:16px"><a class="btn ghost" href="https://github.com/DADA-dcc" target="_blank" rel="noopener">我的 GitHub →</a></p>
+    </div>
+  </section>
+
+  <footer>XS 空间站 · 由 DADA-dcc 打造 · <span id="year"></span> · 仅供个人学习娱乐</footer>
+</div>
+
+<!-- game overlay -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="gameTitle">游戏</h3><button class="x" id="closeOverlay">✕</button></div>
+    <div id="gameMount"></div>
+    <div class="game-bar" id="gameBar"></div>
   </div>
-  <footer>&copy; 2026 DADA-dcc &middot; Built with pure HTML/CSS</footer>
+</div>
+
+<script>
+/* ============ 基础：星空 / 时钟 / 导航 ============ */
+(function starfield(){
+  const cv=document.getElementById('stars'), ctx=cv.getContext('2d');
+  let w,h,stars=[];
+  function resize(){ w=cv.width=innerWidth; h=cv.height=innerHeight; stars=[]; const n=Math.min(180,Math.floor(w*h/12000));
+    for(let i=0;i<n;i++) stars.push({x:Math.random()*w,y:Math.random()*h,z:Math.random()*1.6+.3,r:Math.random()*1.4+.2}); }
+  resize(); addEventListener('resize',resize);
+  function tick(){ ctx.clearRect(0,0,w,h);
+    for(const s of stars){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); const a=.35+s.z*.4; ctx.fillStyle='rgba(150,200,255,'+a+')'; ctx.fill();
+      s.y+=s.z*.18; if(s.y>h){ s.y=-2; s.x=Math.random()*w; } }
+    requestAnimationFrame(tick); }
+  tick();
+})();
+function pad(n){ return String(n).padStart(2,'0'); }
+function updateClock(){ const d=new Date(); document.getElementById('clock').textContent=`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+setInterval(updateClock,1000); updateClock();
+document.getElementById('year').textContent=new Date().getFullYear();
+
+const startTs=Date.now();
+setInterval(()=>{ document.getElementById('statUptime').textContent=Math.floor((Date.now()-startTs)/60000); },5000);
+
+/* nav */
+const nav=document.getElementById('nav');
+function showView(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+nav.addEventListener('click',e=>{ const b=e.target.closest('button[data-view]'); if(b) showView(b.dataset.view); });
+document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button[data-go]'); if(b) showView(b.dataset.go); });
+
+/* ============ 资料库 ============ */
+const NOTES_KEY='xs_space_notes_v1';
+function loadNotes(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)||'[]'); }catch(e){ return []; } }
+function saveNotes(a){ try{ localStorage.setItem(NOTES_KEY,JSON.stringify(a)); }catch(e){} }
+function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function renderNotes(){
+  const arr=loadNotes(); const box=document.getElementById('noteList'); box.innerHTML='';
+  document.getElementById('statNotes').textContent=arr.length;
+  if(!arr.length){ box.innerHTML='<div class="small muted">还没有资料，上面新增一条试试。</div>'; return; }
+  arr.slice().reverse().forEach(n=>{
+    const isLink=/^https?:\/\//i.test(n.body.trim());
+    const el=document.createElement('div'); el.className='note-item';
+    el.innerHTML=`<button class="del" data-id="${n.id}" title="删除">🗑</button>
+      <h4>${esc(n.title||'(无标题)')} <span class="type">${isLink?'链接':'笔记'}</span></h4>
+      ${isLink?`<p><a href="${esc(n.body.trim())}" target="_blank" rel="noopener" style="color:var(--cyan)">${esc(n.body.trim())}</a></p>`:`<p>${esc(n.body)}</p>`}`;
+    box.appendChild(el);
+  });
+}
+document.getElementById('addNote').addEventListener('click',()=>{
+  const t=document.getElementById('noteTitle').value.trim();
+  const b=document.getElementById('noteBody').value.trim();
+  if(!t && !b){ return; }
+  const arr=loadNotes(); arr.push({id:Date.now()+''+Math.floor(Math.random()*999), title:t, body:b, ts:Date.now()}); saveNotes(arr);
+  document.getElementById('noteTitle').value=''; document.getElementById('noteBody').value='';
+  renderNotes();
+});
+document.getElementById('noteList').addEventListener('click',e=>{
+  const d=e.target.closest('.del'); if(!d) return;
+  const arr=loadNotes().filter(n=>n.id!==d.dataset.id); saveNotes(arr); renderNotes();
+});
+renderNotes();
+
+/* 文件区：读取 ./resources/index.json */
+(function loadFiles(){
+  fetch('./resources/index.json').then(r=>r.ok?r.json():[]).then(list=>{
+    const box=document.getElementById('fileList'); box.innerHTML='';
+    if(!Array.isArray(list)||!list.length){ box.innerHTML='<div class="small muted">暂无文件。把文件放进仓库的 resources/ 目录，并在 resources/index.json 里登记即可。</div>'; return; }
+    list.forEach(f=>{ const el=document.createElement('div'); el.className='file-item';
+      el.innerHTML=`<span>📄</span><a href="${encodeURI(f.path)}" target="_blank" rel="noopener">${esc(f.name||f.path)}</a><span class="small muted" style="margin-left:auto">${esc(f.desc||'')}</span>`;
+      box.appendChild(el); });
+  }).catch(()=>{ document.getElementById('fileList').innerHTML='<div class="small muted">暂无文件清单。</div>'; });
+})();
+
+/* ============ AI 助手 ============ */
+const AI_BASE='https://round-unit-93bd.xsb13258256719.workers.dev';
+const msgs=document.getElementById('msgs');
+function addMsg(text,cls){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; return d; }
+let aiBusy=false;
+async function askAI(){
+  const input=document.getElementById('aiInput'); const q=input.value.trim(); if(!q||aiBusy) return;
+  input.value=''; addMsg(q,'user'); aiBusy=true;
+  const thinking=addMsg('思考中…','sys');
+  try{
+    const prompt='你是「XS 空间站」里的通用智能助手。请忽略任何法考教师角色设定，作为友好的通用助理，用简体中文简洁回答用户的问题。\n用户：'+q;
+    const res=await fetch(AI_BASE+'/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,followup:''})});
+    const data=await res.json().catch(()=>({error:'返回非 JSON'}));
+    thinking.remove();
+    if(!res.ok||data.error){ addMsg('⚠️ '+(data.error||('HTTP '+res.status)),'sys'); }
+    else{ addMsg(data.content||'(空回复)','bot'); }
+  }catch(e){ thinking.remove(); addMsg('⚠️ 连接 AI 失败：'+e.message,'sys'); }
+  finally{ aiBusy=false; }
+}
+document.getElementById('aiSend').addEventListener('click',askAI);
+document.getElementById('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); askAI(); } });
+
+/* ============ 游戏 ============ */
+const overlay=document.getElementById('overlay'), gameMount=document.getElementById('gameMount'), gameBar=document.getElementById('gameBar'), gameTitle=document.getElementById('gameTitle');
+let activeGameStop=null;
+function openGame(type){
+  gameMount.innerHTML=''; gameBar.innerHTML='';
+  if(activeGameStop){ try{activeGameStop();}catch(e){} activeGameStop=null; }
+  const titles={snake:'🐍 贪吃蛇', g2048:'🔢 2048', memory:'🃏 记忆翻牌'};
+  gameTitle.textContent=titles[type]||'游戏';
+  overlay.classList.add('show');
+  if(type==='snake') activeGameStop=startSnake();
+  if(type==='g2048') activeGameStop=start2048();
+  if(type==='memory') activeGameStop=startMemory();
+}
+function closeGame(){ overlay.classList.remove('show'); if(activeGameStop){ try{activeGameStop();}catch(e){} activeGameStop=null; } gameMount.innerHTML=''; }
+document.getElementById('gameTitle').parentElement.querySelector('#closeOverlay').addEventListener('click',closeGame);
+overlay.addEventListener('click',e=>{ if(e.target===overlay) closeGame(); });
+document.getElementById('view-games').addEventListener('click',e=>{ const b=e.target.closest('button[data-game]'); if(b) openGame(b.dataset.game); });
+
+/* --- Snake --- */
+function startSnake(){
+  const canvas=document.createElement('canvas'); canvas.width=320; canvas.height=320; canvas.className='game';
+  gameMount.appendChild(canvas); const ctx=canvas.getContext('2d');
+  const cell=16, N=20; let snake=[{x:9,y:10}], dir={x:1,y:0}, nd={x:1,y:0}, food=rndFood(), score=0, alive=true, speed=130;
+  const scoreEl=document.createElement('span'); scoreEl.className='scorebadge'; scoreEl.textContent='得分 0';
+  gameBar.innerHTML=''; gameBar.appendChild(scoreEl);
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('snake'); };
+  gameBar.appendChild(restart);
+  function rndFood(){ let p; do{ p={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}; }while(snake.some(s=>s.x===p.x&&s.y===p.y)); return p; }
+  function step(){
+    if(!alive) return;
+    dir=nd; const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if(head.x<0||head.y<0||head.x>=N||head.y>=N||snake.some(s=>s.x===head.x&&s.y===head.y)){ alive=false; draw(); return; }
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){ score+=10; scoreEl.textContent='得分 '+score; food=rndFood(); if(speed>70) speed-=3; }
+    else snake.pop();
+    draw();
+  }
+  function draw(){
+    ctx.fillStyle='#060a16'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#ff6b8a'; ctx.fillRect(food.x*cell+2,food.y*cell+2,cell-4,cell-4);
+    snake.forEach((s,i)=>{ ctx.fillStyle=i===0?'#49e6ff':'rgba(73,230,255,.55)'; ctx.fillRect(s.x*cell+1,s.y*cell+1,cell-2,cell-2); });
+    if(!alive){ ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#ff6b8a'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.fillText('游戏结束 · 得分 '+score, canvas.width/2, canvas.height/2); }
+  }
+  let timer=null; function loop(){ step(); if(alive) timer=setTimeout(loop,speed); }
+  draw(); timer=setTimeout(loop,speed);
+  function onKey(e){ const k=e.key; const map={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}};
+    if(map[k]){ e.preventDefault(); const m=map[k]; if(m.x!==-dir.x||m.y!==-dir.y) nd=m; } }
+  addEventListener('keydown',onKey);
+  return ()=>{ clearTimeout(timer); removeEventListener('keydown',onKey); };
+}
+
+/* --- 2048 --- */
+function start2048(){
+  const wrap=document.createElement('div'); wrap.className='g2048'; gameMount.appendChild(wrap);
+  const scoreEl=document.createElement('span'); scoreEl.className='scorebadge'; scoreEl.textContent='得分 0';
+  gameBar.innerHTML=''; gameBar.appendChild(scoreEl);
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('g2048'); };
+  gameBar.appendChild(restart);
+  let g, score;
+  function init(){ g=Array.from({length:4},()=>[0,0,0,0]); score=0; add(); add(); }
+  function add(){ const empty=[]; for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!g[r][c])empty.push([r,c]);
+    if(!empty.length)return; const [r,c]=empty[Math.floor(Math.random()*empty.length)]; g[r][c]=Math.random()<.9?2:4; }
+  function slide(row){ const a=row.filter(x=>x); for(let i=0;i<a.length-1;i++){ if(a[i]===a[i+1]){ a[i]*=2; score+=a[i]; a.splice(i+1,1); } } while(a.length<4)a.push(0); return a; }
+  function move(dirKey){
+    const before=JSON.stringify(g);
+    if(dirKey==='left') g=g.map(r=>slide(r));
+    else if(dirKey==='right') g=g.map(r=>slide(r.slice().reverse()).reverse());
+    else if(dirKey==='up'){ const t=transpose(g); g=transpose(t.map(r=>slide(r))); }
+    else if(dirKey==='down'){ const t=transpose(g); g=transpose(t.map(r=>slide(r.slice().reverse()).reverse())); }
+    if(JSON.stringify(g)!==before){ add(); render(); if(gameWon()) {} }
+  }
+  function transpose(m){ return m[0].map((_,c)=>m.map(r=>r[c])); }
+  function gameWon(){ return g.flat().includes(2048); }
+  function render(){
+    wrap.innerHTML=''; scoreEl.textContent='得分 '+score;
+    for(let r=0;r<4;r++)for(let c=0;c<4;c++){ const v=g[r][c]; const d=document.createElement('div');
+      d.className='tile'+(v?(' t'+v):''); d.textContent=v||''; wrap.appendChild(d); }
+  }
+  function onKey(e){ const map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}; if(map[e.key]){ e.preventDefault(); move(map[e.key]); } }
+  addEventListener('keydown',onKey);
+  init(); render();
+  return ()=>{ removeEventListener('keydown',onKey); };
+}
+
+/* --- Memory --- */
+function startMemory(){
+  const icons=['🚀','🪐','⭐','🌙','☄️','🛸','🌌','🔭'];
+  let deck=icons.concat(icons).map((v,i)=>({v,key:i}));
+  // shuffle
+  for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
+  const grid=document.createElement('div'); grid.className='memgrid'; gameMount.appendChild(grid);
+  const movesEl=document.createElement('span'); movesEl.className='scorebadge'; movesEl.textContent='步数 0';
+  gameBar.innerHTML=''; gameBar.appendChild(movesEl);
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('memory'); };
+  gameBar.appendChild(restart);
+  let first=null, moves=0, lock=false, matched=0;
+  deck.forEach((card,idx)=>{ const el=document.createElement('div'); el.className='mcard'; el.dataset.idx=idx; el.textContent='';
+    el.addEventListener('click',()=>{
+      if(lock||el.classList.contains('flip')||el.classList.contains('done'))return;
+      el.classList.add('flip'); el.textContent=card.v;
+      if(!first){ first={el,card}; return; }
+      moves++; movesEl.textContent='步数 '+moves;
+      if(first.card.v===card.v){ first.el.classList.add('done'); el.classList.add('done'); first=null; matched++; if(matched===icons.length){ setTimeout(()=>alert('全部配对完成！步数 '+moves),200); } }
+      else{ lock=true; const f=first; setTimeout(()=>{ f.el.classList.remove('flip'); f.el.textContent=''; el.classList.remove('flip'); el.textContent=''; first=null; lock=false; },720); }
+    });
+    grid.appendChild(el);
+  });
+  return ()=>{};
+}
+</script>
 </body>
 </html>
