@@ -223,7 +223,7 @@
         <textarea id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
         <div style="display:flex;gap:8px">
           <button class="btn" id="addNote">保存资料</button>
-          <span class="small muted" id="noteHint" style="align-self:center">资料保存在本机浏览器（localStorage）。</span>
+          <span class="small muted" id="noteHint" style="align-self:center">资料库：<b id="noteSource">连接中…</b>（Supabase 云数据库·跨设备）</span>
         </div>
       </div>
     </div>
@@ -309,37 +309,58 @@ function showView(v){
 nav.addEventListener('click',e=>{ const b=e.target.closest('button[data-view]'); if(b) showView(b.dataset.view); });
 document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button[data-go]'); if(b) showView(b.dataset.go); });
 
-/* ============ 资料库 ============ */
+/* ============ 资料库（Supabase 云数据库 + 本地离线兜底） ============ */
 const NOTES_KEY='xs_space_notes_v1';
-function loadNotes(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)||'[]'); }catch(e){ return []; } }
-function saveNotes(a){ try{ localStorage.setItem(NOTES_KEY,JSON.stringify(a)); }catch(e){} }
+const SUPA_URL='https://fqkcznlwydxrjhmijvpj.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxa2N6bmx3eWR4cmpobWlqdnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MjI4NTksImV4cCI6MjEwOTA5ODg1OX0.Vz7R1rgeCjfJa5v_gcXrhwMR705RrxRxIbKLiDoMKCA';
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function lsLoad(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)||'[]'); }catch(e){ return []; } }
+function lsSave(a){ try{ localStorage.setItem(NOTES_KEY,JSON.stringify(a)); }catch(e){} }
+let notesCache=[];
+function setSrc(t){ const el=document.getElementById('noteSource'); if(el) el.textContent=t; }
+async function loadNotes(){
+  try{
+    const res=await fetch(SUPA_URL+'/rest/v1/notes?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    notesCache=await res.json(); lsSave(notesCache); setSrc('Supabase 云');
+  }catch(e){ notesCache=lsLoad(); setSrc('本地离线'); }
+}
 function renderNotes(){
-  const arr=loadNotes(); const box=document.getElementById('noteList'); box.innerHTML='';
+  const arr=notesCache; const box=document.getElementById('noteList'); box.innerHTML='';
   document.getElementById('statNotes').textContent=arr.length;
   if(!arr.length){ box.innerHTML='<div class="small muted">还没有资料，上面新增一条试试。</div>'; return; }
-  arr.slice().reverse().forEach(n=>{
-    const isLink=/^https?:\/\//i.test(n.body.trim());
+  arr.forEach(n=>{
+    const body=String(n.body||''); const isLink=/^https?:\/\//i.test(body.trim());
     const el=document.createElement('div'); el.className='note-item';
     el.innerHTML=`<button class="del" data-id="${n.id}" title="删除">🗑</button>
       <h4>${esc(n.title||'(无标题)')} <span class="type">${isLink?'链接':'笔记'}</span></h4>
-      ${isLink?`<p><a href="${esc(n.body.trim())}" target="_blank" rel="noopener" style="color:var(--cyan)">${esc(n.body.trim())}</a></p>`:`<p>${esc(n.body)}</p>`}`;
+      ${isLink?`<p><a href="${esc(body.trim())}" target="_blank" rel="noopener" style="color:var(--cyan)">${esc(body.trim())}</a></p>`:`<p>${esc(body)}</p>`}`;
     box.appendChild(el);
   });
 }
-document.getElementById('addNote').addEventListener('click',()=>{
+async function addNote(){
   const t=document.getElementById('noteTitle').value.trim();
   const b=document.getElementById('noteBody').value.trim();
   if(!t && !b){ return; }
-  const arr=loadNotes(); arr.push({id:Date.now()+''+Math.floor(Math.random()*999), title:t, body:b, ts:Date.now()}); saveNotes(arr);
+  const rec={title:t,body:b,ts:Date.now()};
+  try{
+    const res=await fetch(SUPA_URL+'/rest/v1/notes',{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(rec)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const row=(await res.json())[0]; notesCache=[row,...notesCache]; setSrc('Supabase 云');
+  }catch(e){ rec.id='local-'+Date.now(); notesCache=[rec,...notesCache]; setSrc('本地离线（云不可用）'); }
+  lsSave(notesCache);
   document.getElementById('noteTitle').value=''; document.getElementById('noteBody').value='';
   renderNotes();
-});
-document.getElementById('noteList').addEventListener('click',e=>{
-  const d=e.target.closest('.del'); if(!d) return;
-  const arr=loadNotes().filter(n=>n.id!==d.dataset.id); saveNotes(arr); renderNotes();
-});
-renderNotes();
+}
+async function delNote(id){
+  if(!String(id).startsWith('local-')){
+    try{ await fetch(SUPA_URL+'/rest/v1/notes?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}}); }catch(e){}
+  }
+  notesCache=notesCache.filter(n=>String(n.id)!==String(id)); lsSave(notesCache); renderNotes();
+}
+document.getElementById('addNote').addEventListener('click',addNote);
+document.getElementById('noteList').addEventListener('click',e=>{ const d=e.target.closest('.del'); if(d) delNote(d.dataset.id); });
+loadNotes().then(renderNotes);
 
 /* 文件区：读取 ./resources/index.json */
 (function loadFiles(){
