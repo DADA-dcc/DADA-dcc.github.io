@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>零号竞技场 · 原型</title>
+  <link rel="icon" href="data:," />
+  <style>
+    :root {
+      --bg: #0f1115; --panel: #171b22; --line: #2a313d;
+      --text: #d7deea; --dim: #7b8698;
+      --orange: #ff7a1a; --teal: #35d0ba; --red: #e35d5d;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); }
+    body { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; color: var(--text); }
+    #game { position: absolute; inset: 0; cursor: none; display: block; }
+
+    .hud { position: absolute; pointer-events: none; user-select: none; }
+
+    /* 左上：血条护甲 */
+    #vitals { left: 18px; top: 16px; width: 240px; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin-bottom: 3px; }
+    .bar { height: 14px; background: #000a; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+    .bar > i { display: block; height: 100%; transition: width .12s; }
+    #hp-fill { background: linear-gradient(90deg, #35d0ba, #4fe0c9); }
+    #armor-fill { background: linear-gradient(90deg, #5a86c9, #7ba4e0); }
+    #armor-bar { height: 8px; } #armor-bar + .bar, .bar.tiny { height: 8px; }
+
+    /* 顶中：计时 */
+    #top { top: 14px; left: 50%; transform: translateX(-50%); text-align: center; }
+    #timer { font-size: 30px; font-weight: 800; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+    #mode { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+    /* 右上：K/D + fps + 击杀播报 */
+    #tr { right: 18px; top: 16px; text-align: right; }
+    #kd { font-size: 15px; font-weight: 700; }
+    #kd b { color: var(--orange); }
+    #fps { font-size: 11px; color: var(--dim); margin-top: 2px; }
+    #feed { margin-top: 10px; font-size: 12px; line-height: 1.7; }
+    #feed div { background: #0009; border-radius: 3px; padding: 2px 8px; margin-bottom: 3px; opacity: 1; transition: opacity .6s; }
+    #feed .me { color: var(--teal); } #feed .k { color: var(--orange); }
+
+    /* 左下：武器 */
+    #weapon { left: 18px; bottom: 16px; }
+    #wname { font-size: 16px; font-weight: 700; }
+    #wammo { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; margin-top: 2px; }
+    #wammo small { font-size: 14px; color: var(--dim); font-weight: 400; }
+    #whint { font-size: 11px; color: var(--dim); margin-top: 4px; }
+    #wreload { width: 180px; height: 4px; background: #000a; border: 1px solid var(--line); border-radius: 2px; margin-top: 6px; display: none; }
+    #wreload > i { display: block; height: 100%; background: var(--orange); }
+
+    /* 右下：技能 */
+    #skills { right: 18px; bottom: 16px; text-align: right; font-size: 12px; color: var(--dim); }
+    #dash-pip { display: inline-block; width: 46px; height: 6px; background: #000a; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; vertical-align: middle; margin-left: 6px; }
+    #dash-pip > i { display: block; height: 100%; background: var(--teal); }
+
+    /* 居中层 */
+    .center { left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+    #countdown { font-size: 110px; font-weight: 900; color: var(--orange); text-shadow: 0 6px 40px #ff7a1a55; display: none; }
+    #dead { top: 62%; font-size: 16px; color: var(--red); display: none; }
+
+    /* 覆盖面板（开始 / 结算 / 记分板） */
+    .panel { position: absolute; inset: 0; background: #0f1115e8; display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .panel-box { text-align: center; max-width: 560px; padding: 36px 44px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+    .panel-box h1 { font-size: 40px; letter-spacing: 6px; }
+    .panel-box h1 span { color: var(--orange); }
+    .panel-box .sub { color: var(--dim); font-size: 14px; margin: 8px 0 22px; }
+    .btn { pointer-events: auto; cursor: pointer; background: var(--orange); color: #14100a; border: 0; font-size: 17px; font-weight: 800; padding: 12px 42px; border-radius: 6px; letter-spacing: 4px; }
+    .btn:hover { filter: brightness(1.12); }
+    .btn.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+    .map-pick { margin: 4px 0 20px; }
+    .map-pick button { pointer-events: auto; cursor: pointer; background: #10141b; color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 8px 14px; margin: 0 4px; font-size: 13px; }
+    .map-pick button.on { color: var(--teal); border-color: var(--teal); }
+    table.score { margin: 0 auto 22px; border-collapse: collapse; font-size: 14px; min-width: 300px; }
+    table.score th { color: var(--dim); font-weight: 400; font-size: 12px; padding: 4px 14px; border-bottom: 1px solid var(--line); }
+    table.score td { padding: 5px 14px; border-bottom: 1px solid #20262f; }
+    table.score tr.me td { color: var(--teal); }
+    table.score td.r1 { color: var(--orange); font-weight: 800; }
+    #board { display: none; background: transparent; z-index: 9; }
+    #board .panel-box { padding: 20px 30px; background: #0f1115e0; }
+    #verdict { font-size: 26px; font-weight: 900; margin-bottom: 4px; letter-spacing: 3px; }
+    #verdict.win { color: var(--teal); } #verdict.lose { color: var(--red); }
+
+    /* 受击红闪 */
+    #flash { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, #e3404044 100%); opacity: 0; }
+  </style>
+  <script type="module" crossorigin src="./assets/index-CuAIIH91.js"></script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="flash"></div>
+
+  <div class="hud" id="vitals">
+    <div class="bar-label"><span>HP</span><span id="hp-num">100</span></div>
+    <div class="bar"><i id="hp-fill" style="width:100%"></i></div>
+    <div class="bar tiny" id="armor-bar"><i id="armor-fill" style="width:0%"></i></div>
+  </div>
+
+  <div class="hud" id="top">
+    <div id="timer">5:00</div>
+    <div id="mode">个人乱斗 · <span id="map-name">废弃仓库</span></div>
+  </div>
+
+  <div class="hud" id="tr">
+    <div id="kd">击杀 <b id="k-num">0</b> / 阵亡 <span id="d-num">0</span></div>
+    <div id="fps">-- fps</div>
+    <div id="feed"></div>
+  </div>
+
+  <div class="hud" id="weapon">
+    <div id="wname">制式手枪</div>
+    <div id="wammo">12 <small>/ ∞</small></div>
+    <div id="whint">1 主武器 · 2 副武器 · R 换弹 · Shift 翻滚 · I 无限弹药</div>
+    <div id="wreload"><i></i></div>
+  </div>
+
+  <div class="hud" id="skills">
+    翻滚 Shift<span id="dash-pip"><i style="width:100%"></i></span>
+  </div>
+
+  <div class="hud center" id="countdown">3</div>
+  <div class="hud center" id="dead"></div>
+
+  <div class="panel" id="start">
+    <div class="panel-box">
+      <h1>零号<span>竞技场</span></h1>
+      <div class="sub">点开就打，免下载 · 8 人乱斗 · 5 分钟一局 · WASD 移动 / 鼠标射击</div>
+      <div class="map-pick" id="map-pick"></div>
+      <button class="btn" id="btn-start">开始对局</button>
+    </div>
+  </div>
+
+  <div class="panel" id="result" style="display:none">
+    <div class="panel-box">
+      <div id="verdict">胜利</div>
+      <div class="sub" id="result-sub"></div>
+      <table class="score" id="result-table"></table>
+      <button class="btn" id="btn-again">再来一局</button>
+    </div>
+  </div>
+
+  <div class="panel" id="board">
+    <div class="panel-box">
+      <table class="score" id="board-table"></table>
+      <div class="sub">按住 Tab 查看</div>
+    </div>
+  </div>
+
+</body>
+</html>
