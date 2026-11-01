@@ -361,9 +361,32 @@ function showView(v){
   document.getElementById('view-'+v).classList.add('active');
   nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
   window.scrollTo({top:0,behavior:'smooth'});
+  try{ history.replaceState(null,'','#'+v); document.title=({dash:'🚀 驾驶舱',games:'🎮 小游戏',notes:'📚 资料库',board:'💬 留言板',ai:'🤖 AI助手',about:'✨ 关于'}[v]||'XS 空间站')+' · XS 空间站'; }catch(e){}
 }
+// 首次加载：支持 #位置 / 页面视图直达
+(function(){
+  const m=(location.hash||'').replace('#','').trim();
+  if(m && document.getElementById('view-'+m)) showView(m);
+})();
 nav.addEventListener('click',e=>{ const b=e.target.closest('button[data-view]'); if(b) showView(b.dataset.view); });
 document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button[data-go]'); if(b) showView(b.dataset.go); });
+// 快捷键：`/` 聚焦搜索（资料库页）、`g` + 方向跳转、Esc 关弹窗
+document.addEventListener('keydown',(e)=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea') return;
+  if(e.key==='/'){
+    const s=document.getElementById('noteSearch');
+    if(s && document.getElementById('view-notes').classList.contains('active')){ e.preventDefault(); s.focus(); }
+  } else if(e.key==='Escape'){
+    closeGame();
+  } else if(e.key==='g'){
+    // g 有争议，改用 F 打开游戏、B 打开留言板、A 打开AI
+  } else if(e.key==='f'){ showView('games'); }
+  else if(e.key==='b'){ showView('board'); }
+  else if(e.key==='n'){ showView('notes'); }
+  else if(e.key==='a'){ showView('ai'); }
+  else if(e.key==='h'||e.key==='H'){ showView('dash'); }
+});
 
 /* ============ 资料库（Supabase 云数据库 + 本地离线兜底） ============ */
 const NOTES_KEY='xs_space_notes_v1';
@@ -548,6 +571,27 @@ document.getElementById('aiInput').addEventListener('keydown',e=>{ if(e.key==='E
 /* ============ 游戏 ============ */
 const overlay=document.getElementById('overlay'), gameMount=document.getElementById('gameMount'), gameBar=document.getElementById('gameBar'), gameTitle=document.getElementById('gameTitle');
 let activeGameStop=null;
+// 最高分记录（localStorage，本机）
+const HS_KEY='xs_space_highscores_v1';
+function loadHS(){ try{ return JSON.parse(localStorage.getItem(HS_KEY)||'{}'); }catch(e){ return {}; } }
+function getHS(id){ return loadHS()[id]||0; }
+function setScore(id,score){
+  const s=Math.floor(score||0); let all=loadHS(); if(s>=(all[id]||0)){ all[id]=s; try{ localStorage.setItem(HS_KEY,JSON.stringify(all)); }catch(e){} }
+  return all[id]||0;
+}
+// 显示“最高分”徽章（游戏栏）
+function addHSBadge(id){
+  const span=document.createElement('span'); span.className='scorebadge'; span.style.color='var(--violet)';
+  if(id==='memory'){ const min=getHS('memory'); span.textContent='🏆 最少 '+(min?(-min):'—')+' 步'; }
+  else { span.textContent='🏆 最高 '+getHS(id); }
+  gameBar.appendChild(span); return span;
+}
+// 记忆牌：完成时记录“最少步数”（存负值，越小越好）
+function recordMemory(moves){
+  const key=-Math.floor(moves||0); let all=loadHS(); const cur=all['memory']||0;
+  if(key<cur){ all['memory']=key; try{ localStorage.setItem(HS_KEY,JSON.stringify(all)); }catch(e){} }
+  return all['memory']||0;
+}
 function openGame(type){
   if(type==='arena'){ open(''+location.origin+'/games/arena-zero/','_blank'); return; }
   gameMount.innerHTML=''; gameBar.innerHTML='';
@@ -570,14 +614,14 @@ function startSnake(){
   gameMount.appendChild(canvas); const ctx=canvas.getContext('2d');
   const cell=16, N=20; let snake=[{x:9,y:10}], dir={x:1,y:0}, nd={x:1,y:0}, food=rndFood(), score=0, alive=true, speed=130;
   const scoreEl=document.createElement('span'); scoreEl.className='scorebadge'; scoreEl.textContent='得分 0';
-  gameBar.innerHTML=''; gameBar.appendChild(scoreEl);
+  gameBar.innerHTML=''; gameBar.appendChild(scoreEl); addHSBadge('snake');
   const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('snake'); };
   gameBar.appendChild(restart);
   function rndFood(){ let p; do{ p={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}; }while(snake.some(s=>s.x===p.x&&s.y===p.y)); return p; }
   function step(){
     if(!alive) return;
     dir=nd; const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
-    if(head.x<0||head.y<0||head.x>=N||head.y>=N||snake.some(s=>s.x===head.x&&s.y===head.y)){ alive=false; draw(); return; }
+    if(head.x<0||head.y<0||head.x>=N||head.y>=N||snake.some(s=>s.x===head.x&&s.y===head.y)){ alive=false; setScore('snake',score); scoreEl.textContent='得分 '+score+' · 🏆'+getHS('snake'); draw(); return; }
     snake.unshift(head);
     if(head.x===food.x&&head.y===food.y){ score+=10; scoreEl.textContent='得分 '+score; food=rndFood(); if(speed>70) speed-=3; }
     else snake.pop();
@@ -601,7 +645,7 @@ function startSnake(){
 function start2048(){
   const wrap=document.createElement('div'); wrap.className='g2048'; gameMount.appendChild(wrap);
   const scoreEl=document.createElement('span'); scoreEl.className='scorebadge'; scoreEl.textContent='得分 0';
-  gameBar.innerHTML=''; gameBar.appendChild(scoreEl);
+  gameBar.innerHTML=''; gameBar.appendChild(scoreEl); addHSBadge('g2048');
   const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('g2048'); };
   gameBar.appendChild(restart);
   let g, score;
@@ -620,7 +664,7 @@ function start2048(){
   function transpose(m){ return m[0].map((_,c)=>m.map(r=>r[c])); }
   function gameWon(){ return g.flat().includes(2048); }
   function render(){
-    wrap.innerHTML=''; scoreEl.textContent='得分 '+score;
+    wrap.innerHTML=''; setScore('g2048',score); scoreEl.textContent='得分 '+score+' · 🏆'+getHS('g2048');
     for(let r=0;r<4;r++)for(let c=0;c<4;c++){ const v=g[r][c]; const d=document.createElement('div');
       d.className='tile'+(v?(' t'+v):''); d.textContent=v||''; wrap.appendChild(d); }
   }
@@ -638,7 +682,7 @@ function startMemory(){
   for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
   const grid=document.createElement('div'); grid.className='memgrid'; gameMount.appendChild(grid);
   const movesEl=document.createElement('span'); movesEl.className='scorebadge'; movesEl.textContent='步数 0';
-  gameBar.innerHTML=''; gameBar.appendChild(movesEl);
+  gameBar.innerHTML=''; gameBar.appendChild(movesEl); addHSBadge('memory');
   const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('memory'); };
   gameBar.appendChild(restart);
   let first=null, moves=0, lock=false, matched=0;
@@ -648,7 +692,7 @@ function startMemory(){
       el.classList.add('flip'); el.textContent=card.v;
       if(!first){ first={el,card}; return; }
       moves++; movesEl.textContent='步数 '+moves;
-      if(first.card.v===card.v){ first.el.classList.add('done'); el.classList.add('done'); first=null; matched++; if(matched===icons.length){ setTimeout(()=>alert('全部配对完成！步数 '+moves),200); } }
+      if(first.card.v===card.v){ first.el.classList.add('done'); el.classList.add('done'); first=null; matched++; movesEl.textContent='步数 '+moves; if(matched===icons.length){ recordMemory(moves); movesEl.textContent='完成！步数 '+moves+' · 🏆最少 '+(-getHS('memory')); setTimeout(()=>alert('全部配对完成！步数 '+moves+'（最佳 '+(-getHS('memory'))+' 步）'),200); } }
       else{ lock=true; const f=first; setTimeout(()=>{ f.el.classList.remove('flip'); f.el.textContent=''; el.classList.remove('flip'); el.textContent=''; first=null; lock=false; },720); }
     });
     grid.appendChild(el);
@@ -658,6 +702,17 @@ function startMemory(){
 
 /* 统一初始化（依赖前述常量，放最后） */
 setTimeout(()=>{ try{ loadFiles(); }catch(e){ console.warn('loadFiles',e); } }, 100);
+
+/* 返回顶部按钮 */
+(function backTop(){
+  const btn=document.createElement('button');
+  btn.id='backTop'; btn.textContent='↑';
+  btn.setAttribute('aria-label','返回顶部');
+  btn.style.cssText='position:fixed;right:20px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--cyan);font-size:20px;font-weight:800;cursor:pointer;opacity:0;pointer-events:none;transition:.2s;box-shadow:0 10px 24px -10px rgba(73,230,255,.5)';
+  document.body.appendChild(btn);
+  addEventListener('scroll',()=>{ const show=scrollY>300; btn.style.opacity=show?'1':'0'; btn.style.pointerEvents=show?'auto':'none'; },{passive:true});
+  btn.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+})();
 </script>
 </body>
 </html>
