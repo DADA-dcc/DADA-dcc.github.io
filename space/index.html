@@ -1956,6 +1956,20 @@ function startChess(){
   `;
   document.head.appendChild(css);
 
+  // DOM 结构
+  const root=document.createElement('div'); root.className='pet-root';
+  const bubble=document.createElement('div'); bubble.className='pet-bubble';
+  const img=document.createElement('img'); img.className='pet-body'; img.alt='大肥鱼'; img.draggable=false;
+  root.appendChild(bubble); root.appendChild(img);
+  document.body.appendChild(root);
+
+  // 位置
+  let pos={ x: innerWidth-150, y: innerHeight-200 };
+  try{ const s=JSON.parse(localStorage.getItem('pet_pos_v3')||'null'); if(s&&typeof s.x==='number') pos=s; }catch(e){}
+  function applyPos(){ root.style.left=Math.round(pos.x)+'px'; root.style.top=Math.round(pos.y)+'px'; }
+  function clamp(){ const w=120,h=150; pos.x=Math.max(0,Math.min(innerWidth-w,pos.x)); pos.y=Math.max(0,Math.min(innerHeight-h,pos.y)); }
+  clamp(); applyPos();
+
   // ---- 动画清单：运行时拉取 pet2/manifest.json（含全部 106 个动画）----
   const CACHE={}; let ANIM_ARR=[], ANIMS={}, IDLE=[], ONCE=[], REACT=[], DRAG_ID=null;
   function fpath(id,i){ return 'pet2/'+id+'/f_'+String(i+1).padStart(2,'0')+'.webp'; }
