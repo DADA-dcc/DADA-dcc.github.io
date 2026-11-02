@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#05070f" />
+<title>XS 空间站 · 开发者个人空间</title>
+<meta name="description" content="XS 空间站：一个开发者的个人空间，收录小游戏、技术资料与 AI 助手。" />
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   XS 空间站 · 深空甲板 / Deep-Space Deck
+   ──────────────────────────────────────────────────────────────────
+   设计语言借自 awesome-design-md 里的线性/精密派系：
+     · Linear  —— 深度只来自「表面阶梯 + 1px 发丝线」，拒绝投影与雾气渐变
+     · Raycast —— 单一强调色纪律；饱和色只进插画，不进壳层
+     · Vercel  —— 内嵌 0 0 0 .5px 发丝环，让卡片边缘永远锋利
+     · Warp    —— 显示级字重 400/600 + 负字距；等宽只用于技术信息
+     · Cursor  —— 全系统只有发丝级高度，无 elevation 分层
+   本页三条自定规矩：
+     1. 一支青作为动作色；紫只做环境光；金只做数字。
+     2. 深度靠层级，不靠模糊。整页只有模态遮罩允许 blur。
+     3. 半径、间距、字阶各一套阶梯，不许临时数值。
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── 表面阶梯 ── */
+  --canvas: #05070f;
+  --s1: #0a0e1a;
+  --s2: #0e1424;
+  --s3: #131b2e;
+  --s4: #182238;
+
+  /* ── 发丝线 ── */
+  --hair: rgba(120, 160, 255, 0.13);
+  --hair-strong: rgba(120, 160, 255, 0.24);
+  --hair-accent: rgba(73, 230, 255, 0.42);
+
+  /* ── 色 ── */
+  --cyan: #49e6ff;
+  --cyan-soft: rgba(73, 230, 255, 0.13);
+  --violet: #a06bff;
+  --gold: #f3c969;
+
+  --txt: #dbe6ff;
+  --txt-strong: #f2f7ff;
+  --muted: #8fa2c7;
+  --dim: #63748f;
+  --ok: #37e0a0;
+  --bad: #ff6b8a;
+
+  /* ── 高度：内嵌发丝环 + 极小偏移，永不出现大柔光 ── */
+  --ring: 0 0 0 0.5px var(--hair-strong);
+  --lift-1: var(--ring), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --lift-2: var(--ring), 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.75);
+
+  /* ── 半径阶梯 ── */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 22px;
+  --r-full: 999px;
+
+  /* ── 间距阶梯（4 基） ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ── 字族 ── */
+  --font: -apple-system, "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: -apple-system, "Segoe UI Variable Display", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", "SFMono-Regular",
+    Consolas, monospace;
+
+  /* ── 节奏 ── */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --t-fast: 120ms;
+  --t: 160ms;
+  --t-slow: 260ms;
+}
+
+/* ═══════════════ 基础 ═══════════════ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font: 400 14.5px/1.68 var(--font);
+  letter-spacing: 0.002em;
+  color: var(--txt);
+  background: var(--canvas);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+/* 环境光：紫在这里，且只在这里 */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 44% at 14% 6%, rgba(91, 73, 255, 0.16), transparent 62%),
+    radial-gradient(48% 38% at 88% 18%, rgba(73, 230, 255, 0.10), transparent 62%),
+    radial-gradient(66% 56% at 50% 118%, rgba(160, 107, 255, 0.11), transparent 64%);
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-10);
+}
+
+::selection {
+  color: var(--txt-strong);
+  background: var(--cyan-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 160, 255, 0.2);
+  border: 2px solid transparent;
+  border-radius: var(--r-full);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(73, 230, 255, 0.36);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ═══════════════ 字阶 ═══════════════ */
+
+.eyebrow {
+  margin: 0;
+  font: 500 10.5px/1.4 var(--mono);
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.3vw, 32px);
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.032em;
+  color: var(--txt-strong);
+}
+
+.lead {
+  margin: var(--sp-2) 0 0;
+  max-width: 640px;
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════ 页头 ═══════════════ */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--hair);
+}
+
+.logo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 15px/1 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+  background: var(--s2);
+  border: 1px solid var(--hair-strong);
+  box-shadow: inset 0 0 0 0.5px rgba(73, 230, 255, 0.16);
+}
+
+.logo::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--r-xl);
+  border: 1px solid rgba(73, 230, 255, 0.22);
+  animation: breathe 4.4s var(--ease) infinite;
+  pointer-events: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.brand {
+  min-width: 0;
+}
+
+/* 品牌字是全页唯一的多色渐变 */
+.brand h1 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  background: linear-gradient(96deg, #e8f0ff 0%, #49e6ff 62%, #9fb6ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand .tagline {
+  margin: 1px 0 0;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.clock {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s1);
+  font: 500 13px/1.3 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+/* ═══════════════ 导航：分段胶囊 ═══════════════ */
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  margin-bottom: var(--sp-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: var(--s1);
+  box-shadow: var(--ring);
+}
+
+nav button {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--muted);
+  transition: color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+nav button .ic {
+  font-size: 14px;
+  line-height: 1;
+  filter: saturate(0.85);
+}
+
+nav button:hover {
+  color: var(--txt);
+  background: var(--s2);
+}
+
+nav button.active {
+  color: var(--cyan);
+  background: var(--s3);
+  border-color: var(--hair-accent);
+  box-shadow: inset 0 0 0 0.5px rgba(73, 230, 255, 0.18);
+}
+
+/* ═══════════════ 视图切换 ═══════════════ */
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+  animation: rise var(--t-slow) var(--ease);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ═══════════════ 卡片：哑光面板 + 顶边高光 ═══════════════ */
+
+.card {
+  position: relative;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-xl);
+  background: var(--s1);
+  box-shadow: var(--lift-1);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 26%,
+    rgba(255, 255, 255, 0.05) 72%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.card + .card {
+  margin-top: var(--sp-4);
+}
+
+.grid {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.g3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.g2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 小游戏：自适应列数，窄屏自然回落到 3 / 2 / 1 */
+.games {
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* 行内的控件按内容定宽，只有显式 flex:1 的才撑满 */
+.row > .field {
+  width: auto;
+  flex: 0 1 auto;
+}
+
+/* ═══════════════ 章节标题：右侧一条渐隐发丝 ═══════════════ */
+
+h2.sec {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font);
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  color: var(--txt-strong);
+}
+
+h2.sec::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 24px;
+  background: linear-gradient(90deg, var(--hair-strong), transparent);
+}
+
+/* ═══════════════ 驾驶舱 ═══════════════ */
+
+.hero {
+  padding: var(--sp-8) var(--sp-6);
+  overflow: hidden;
+  background:
+    radial-gradient(118% 92% at 10% -6%, rgba(73, 230, 255, 0.058), transparent 62%),
+    var(--s1);
+}
+
+.hero .display {
+  margin-top: var(--sp-3);
+}
+
+.hero .eyebrow {
+  color: var(--cyan);
+  opacity: 0.72;
+}
+
+.stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: var(--s2);
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip b {
+  font: 600 13.5px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.quick button {
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  padding: var(--sp-4);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  color: var(--txt);
+  transition: border-color var(--t) var(--ease),
+    background-color var(--t) var(--ease), transform var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.quick button:hover {
+  background: var(--s2);
+  border-color: var(--hair-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
+}
+
+.quick .qic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: var(--sp-2);
+  font-size: 16px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s2);
+}
+
+.quick .qt {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.quick .qd {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+/* ═══════════════ 小游戏 ═══════════════ */
+
+.game-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  box-shadow: var(--lift-1);
+  transition: border-color var(--t) var(--ease), transform var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.game-card:hover {
+  border-color: var(--hair-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
+}
+
+.game-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 104px;
+  font-size: 38px;
+  background:
+    radial-gradient(90% 120% at 50% 120%, rgba(73, 230, 255, 0.08), transparent 68%),
+    var(--s2);
+  border-bottom: 1px solid var(--hair);
+}
+
+.game-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+
+.game-body h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  color: var(--txt-strong);
+}
+
+.game-body p {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 12px;
+  line-height: 1.62;
+  color: var(--dim);
+}
+
+.game-body .row {
+  margin-top: var(--sp-1);
+}
+
+/* ═══════════════ 按钮 ═══════════════ */
+
+.btn {
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--cyan);
+  color: #04121a;
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.btn:hover {
+  background: #7bd9ff;
+}
+
+.btn:active {
+  background: var(--cyan-dim, #2aa8bd);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--hair);
+}
+
+.btn.ghost:hover {
+  color: var(--txt);
+  border-color: var(--hair-strong);
+  background: var(--s2);
+}
+
+/* ═══════════════ 表单 ═══════════════ */
+
+.field {
+  font-family: var(--font);
+  font-size: 13.5px;
+  color: var(--txt);
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  outline: none;
+  transition: border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.field::placeholder {
+  color: var(--dim);
+}
+
+.field:hover {
+  border-color: var(--hair-strong);
+}
+
+.field:focus {
+  border-color: var(--hair-accent);
+  box-shadow: 0 0 0 3px rgba(73, 230, 255, 0.12);
+}
+
+textarea.field {
+  min-height: 68px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+select.field {
+  cursor: pointer;
+  padding-right: 30px;
+}
+
+.note-form {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.hint {
+  align-self: center;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.hint b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ═══════════════ 资料库 / 留言列表 ═══════════════ */
+
+.note-list {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.note-item {
+  position: relative;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  transition: border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.note-item:hover {
+  border-color: var(--hair-strong);
+  background: var(--s2);
+}
+
+.note-item h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 4px;
+  padding-right: 26px;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: var(--txt-strong);
+}
+
+.note-item .type {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border: 1px solid var(--hair-accent);
+  border-radius: var(--r-full);
+  background: var(--cyan-soft);
+  font: 500 10px/1.6 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+}
+
+.note-item p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.66;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-item .del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  font-size: 13px;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.note-item .del:hover {
+  color: var(--bad);
+  border-color: var(--hair);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s1);
+  font-size: 13px;
+}
+
+.file-item a {
+  color: var(--cyan);
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
+.file-item > .small.muted {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+/* ═══════════════ AI 助手 ═══════════════ */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: min(52vh, 440px);
+}
+
+.msgs {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--canvas);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.03);
+}
+
+.msg {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: var(--r-lg);
+  font-size: 13.5px;
+  line-height: 1.66;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg.user {
+  align-self: flex-end;
+  border: 1px solid var(--hair-accent);
+  background: var(--s3);
+  color: var(--txt-strong);
+  border-bottom-right-radius: var(--r-xs);
+}
+
+.msg.bot {
+  align-self: flex-start;
+  border: 1px solid var(--hair);
+  background: var(--s1);
+  border-bottom-left-radius: var(--r-xs);
+}
+
+.msg.sys {
+  align-self: center;
+  max-width: 90%;
+  padding: 3px 10px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: transparent;
+  font: 500 11px/1.6 var(--mono);
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+.chat-input {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair);
+}
+
+.chat-input textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  resize: none;
+}
+
+.kbd {
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.02em;
+  padding: 2px 5px;
+  border: 1px solid var(--hair-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-xs);
+  background: var(--s2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ═══════════════ 页脚 ═══════════════ */
+
+footer {
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+  text-align: center;
+  font: 500 11px/1.7 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+/* ═══════════════ 游戏模态 ═══════════════ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: rgba(4, 6, 13, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.overlay.show {
+  display: flex;
+}
+
+.modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow: auto;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--r-xl);
+  background: var(--s2);
+  box-shadow: var(--lift-2);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--hair);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--txt-strong);
+}
+
+.x {
+  cursor: pointer;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.x:hover {
+  color: var(--txt);
+  border-color: var(--hair-strong);
+}
+
+canvas.game {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: #060a16;
+}
+
+.game-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair);
+  flex-wrap: wrap;
+}
+
+.scorebadge {
+  font: 600 13px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: var(--gold);
+}
+
+/* ═══════════════ 内嵌小游戏 ═══════════════ */
+
+.g2048 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(340px, 86vw);
+  margin: 0 auto;
+  padding: 8px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+}
+
+.tile {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.045);
+  font: 700 clamp(14px, 4vw, 22px) / 1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+  transition: background-color 120ms var(--ease), color 120ms var(--ease);
+}
+
+.t2 {
+  background: #17203a;
+}
+.t4 {
+  background: #1c2a4d;
+}
+.t8 {
+  background: #244070;
+}
+.t16 {
+  background: #2d5490;
+}
+.t32 {
+  background: #3568ae;
+}
+.t64 {
+  background: #49e6ff;
+  color: #04121a;
+}
+.t128 {
+  background: #7bd9ff;
+  color: #04121a;
+}
+.t256 {
+  background: #a06bff;
+  color: #fff;
+}
+.t512 {
+  background: #b98bff;
+  color: #fff;
+}
+.t1024 {
+  background: #f3c969;
+  color: #1a1400;
+}
+.t2048 {
+  background: linear-gradient(135deg, #f3c969, #ffe8a8);
+  color: #1a1400;
+}
+
+.memgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(360px, 88vw);
+  margin: 0 auto;
+}
+
+.mcard {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s3);
+  font-size: 25px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--t) var(--ease),
+    border-color var(--t) var(--ease), transform var(--t) var(--ease);
+}
+
+.mcard:hover {
+  border-color: var(--hair-strong);
+  transform: translateY(-1px);
+}
+
+.mcard.flip {
+  background: var(--cyan-soft);
+  border-color: var(--hair-accent);
+}
+
+.mcard.done {
+  background: rgba(55, 224, 160, 0.14);
+  border-color: rgba(55, 224, 160, 0.45);
+  cursor: default;
+  transform: none;
+}
+
+/* ═══════════════ 响应式 ═══════════════ */
+
+@media (max-width: 900px) {
+  .quick {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .wrap {
+    padding: var(--sp-4) var(--sp-3) var(--sp-8);
+  }
+  .g3,
+  .g2 {
+    grid-template-columns: 1fr;
+  }
+  .quick {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hero {
+    padding: var(--sp-6) var(--sp-4);
+  }
+  nav {
+    border-radius: var(--r-lg);
+  }
+  .brand h1 {
+    font-size: 17px;
+  }
+  .clock {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ═══════════════ 减弱动态 ═══════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="glow"></div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="logo">XS</div>
+    <div class="brand">
+      <h1>XS 空间站</h1>
+      <p class="tagline">开发者个人空间 · 小游戏 · 资料库 · AI 助手</p>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <nav id="nav">
+    <button data-view="dash" class="active"><span class="ic">🚀</span>驾驶舱</button>
+    <button data-view="games"><span class="ic">🎮</span>小游戏</button>
+    <button data-view="notes"><span class="ic">📚</span>资料库</button>
+    <button data-view="board"><span class="ic">💬</span>留言板</button>
+    <button data-view="ai"><span class="ic">🤖</span>AI 助手</button>
+    <button data-view="about"><span class="ic">✨</span>关于</button>
+  </nav>
+
+  <!-- 驾驶舱 -->
+  <section class="view active" id="view-dash">
+    <div class="card hero">
+      <p class="eyebrow">XS-06 · LOW ORBIT DECK</p>
+      <h2 class="display">欢迎登舰，指挥官 👨‍🚀</h2>
+      <p class="lead">这里是你的私人空间站：放松玩几把小游戏、归档技术资料、或让 AI 助手搭把手。</p>
+      <div class="stat">
+        <span class="chip">已存资料 <b id="statNotes">0</b> 条</span>
+        <span class="chip">小游戏 <b>4</b> 款</span>
+        <span class="chip">在线时长 <b id="statUptime">0</b> 分</span>
+        <span class="chip">今日访问 <b id="statToday">0</b> 次</span>
+        <span class="chip">总访问 <b id="statTotal">0</b> 次</span>
+      </div>
+    </div>
+    <div class="quick" id="quick">
+      <button data-go="games"><span class="qic">🎮</span><span class="qt">开玩小游戏</span><span class="qd">贪吃蛇 / 2048 / 记忆翻牌 / 零号竞技场</span></button>
+      <button data-go="notes"><span class="qic">📚</span><span class="qt">打开资料库</span><span class="qd">笔记、链接、文件归档</span></button>
+      <button data-go="board"><span class="qic">💬</span><span class="qt">去留言板</span><span class="qd">留下足迹 / 看访客留言</span></button>
+      <button data-go="ai"><span class="qic">🤖</span><span class="qt">呼叫 AI 助手</span><span class="qd">提问、拆解、写作</span></button>
+      <button data-go="about"><span class="qic">✨</span><span class="qt">关于空间站</span><span class="qd">开发者与技术栈</span></button>
+    </div>
+  </section>
+
+  <!-- 小游戏 -->
+  <section class="view" id="view-games">
+    <h2 class="sec">🎮 我开发的小游戏</h2>
+    <div class="grid games">
+      <div class="game-card">
+        <div class="game-cover">🐍</div>
+        <div class="game-body">
+          <h3>贪吃蛇</h3>
+          <p>方向键 / 按钮控制，吃到果实变长，别撞墙撞自己。</p>
+          <div class="row"><button class="btn" data-game="snake">开始</button></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🔢</div>
+        <div class="game-body">
+          <h3>2048</h3>
+          <p>方向键合并相同数字，凑出 2048。</p>
+          <div class="row"><button class="btn" data-game="g2048">开始</button></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🃏</div>
+        <div class="game-body">
+          <h3>记忆翻牌</h3>
+          <p>翻开配对相同的图标，考验记忆力。</p>
+          <div class="row"><button class="btn" data-game="memory">开始</button></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🎯</div>
+        <div class="game-body">
+          <h3>零号竞技场 · FPS</h3>
+          <p>我做的 3D 枪战竞技场：8 人乱斗 · 3 张地图 · WASD 移动 / 鼠标射击。</p>
+          <div class="row">
+            <button class="btn" data-game="arena">全屏开玩</button>
+            <a class="btn ghost" href="/games/arena-zero.zip" download>下载</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 资料库 -->
+  <section class="view" id="view-notes">
+    <h2 class="sec">📚 资料库</h2>
+    <div class="card">
+      <div class="note-form">
+        <div class="row">
+          <input class="field" id="noteTitle" placeholder="标题（如：某知识点的要点）" style="flex:1;min-width:160px" />
+          <select class="field" id="noteCat" style="flex:0 0 auto;min-width:132px">
+            <option value="笔记">📝 笔记</option>
+            <option value="链接">🔗 链接</option>
+            <option value="资料">📦 资料</option>
+            <option value="灵感">💡 灵感</option>
+            <option value="待办">✅ 待办</option>
+          </select>
+        </div>
+        <textarea class="field" id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
+        <div class="row">
+          <button class="btn" id="addNote">保存资料</button>
+          <span class="hint" id="noteHint">资料库：<b id="noteSource">连接中…</b>（Supabase 云数据库·跨设备）</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <input class="field" id="noteSearch" placeholder="🔍 搜索标题 / 内容…" style="flex:1;min-width:180px" />
+        <select class="field" id="noteFilter" style="flex:0 0 auto;min-width:132px">
+          <option value="">全部分类</option>
+          <option value="笔记">📝 笔记</option>
+          <option value="链接">🔗 链接</option>
+          <option value="资料">📦 资料</option>
+          <option value="灵感">💡 灵感</option>
+          <option value="待办">✅ 待办</option>
+        </select>
+      </div>
+    </div>
+    <div class="note-list" id="noteList"></div>
+    <h2 class="sec" style="margin-top:26px">📎 文件区</h2>
+    <div class="card">
+      <div class="row">
+        <input class="field" id="upFile" type="file" style="flex:1;min-width:200px;padding:7px 10px" />
+        <button class="btn" id="upFileBtn">上传到云</button>
+        <span class="hint" id="upHint"></span>
+      </div>
+    </div>
+    <div class="note-list" id="fileList"><div class="small dim">加载中…</div></div>
+  </section>
+
+  <!-- 留言板（Supabase 云存储） -->
+  <section class="view" id="view-board">
+    <h2 class="sec">💬 留言板</h2>
+    <div class="card">
+      <div class="note-form">
+        <input class="field" id="msgName" placeholder="你的昵称（选填）" maxlength="30" />
+        <textarea class="field" id="msgBody" placeholder="给站长说点什么… 建议 / 反馈 / 夸夸都行" maxlength="500"></textarea>
+        <div class="row">
+          <button class="btn" id="addMsg">留下足迹</button>
+          <span class="hint" id="msgHint">留言保存到 Supabase 云数据库，公开可看。</span>
+        </div>
+      </div>
+    </div>
+    <div class="note-list" id="msgList"></div>
+  </section>
+
+  <!-- AI 助手 -->
+  <section class="view" id="view-ai">
+    <h2 class="sec">🤖 AI 助手</h2>
+    <div class="card">
+      <div class="chat">
+        <div class="msgs" id="msgs">
+          <div class="msg bot">你好，我是空间站 AI 助手。可以帮你回答问题、解释概念、写作润色。想聊点什么？</div>
+        </div>
+        <div class="chat-input">
+          <textarea class="field" id="aiInput" placeholder="输入你的问题…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="btn" id="aiSend">发送</button>
+        </div>
+      </div>
+      <p class="small dim" style="margin:12px 0 0">AI 由 Cloudflare Worker 提供（与法考 App 共用后端）。若提示未配置密钥，请联系站长在 Worker 设置 <span class="kbd">DEEPSEEK_API_KEY</span>。</p>
+    </div>
+  </section>
+
+  <!-- 关于 -->
+  <section class="view" id="view-about">
+    <h2 class="sec">✨ 关于空间站</h2>
+    <div class="card">
+      <p>这是我（<b>DADA-dcc</b>）的个人空间站，用来收纳我开发的小游戏、技术资料，并内置一个 AI 助手。</p>
+      <p class="dim small">纯前端单页应用 · 数据本地存储 · 部署于 GitHub Pages · 域名 xs06.is-a.dev</p>
+      <div class="stat">
+        <span class="chip">前端 <b>HTML/CSS/JS</b></span>
+        <span class="chip">托管 <b>GitHub Pages</b></span>
+        <span class="chip">AI <b>Cloudflare Worker</b></span>
+      </div>
+      <p style="margin:16px 0 0"><a class="btn ghost" href="https://github.com/DADA-dcc" target="_blank" rel="noopener">我的 GitHub →</a></p>
+    </div>
+  </section>
+
+  <footer>XS 空间站 · 由 DADA-dcc 打造 · <span id="year"></span> · 仅供个人学习娱乐</footer>
+</div>
+
+<!-- game overlay -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="gameTitle">游戏</h3><button class="x" id="closeOverlay" aria-label="关闭">✕</button></div>
+    <div id="gameMount"></div>
+    <div class="game-bar" id="gameBar"></div>
+  </div>
+</div>
+<script>
+/* ============ 基础：星空 / 时钟 / 导航 ============ */
+(function starfield(){
+  const cv=document.getElementById('stars'), ctx=cv.getContext('2d');
+  let w,h,stars=[];
+  function resize(){ w=cv.width=innerWidth; h=cv.height=innerHeight; stars=[]; const n=Math.min(180,Math.floor(w*h/12000));
+    for(let i=0;i<n;i++) stars.push({x:Math.random()*w,y:Math.random()*h,z:Math.random()*1.6+.3,r:Math.random()*1.4+.2}); }
+  resize(); addEventListener('resize',resize);
+  function tick(){ ctx.clearRect(0,0,w,h);
+    for(const s of stars){ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,7); const a=.35+s.z*.4; ctx.fillStyle='rgba(150,200,255,'+a+')'; ctx.fill();
+      s.y+=s.z*.18; if(s.y>h){ s.y=-2; s.x=Math.random()*w; } }
+    requestAnimationFrame(tick); }
+  tick();
+})();
+function pad(n){ return String(n).padStart(2,'0'); }
+function updateClock(){ const d=new Date(); document.getElementById('clock').textContent=`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+setInterval(updateClock,1000); updateClock();
+document.getElementById('year').textContent=new Date().getFullYear();
+
+const startTs=Date.now();
+setInterval(()=>{ document.getElementById('statUptime').textContent=Math.floor((Date.now()-startTs)/60000); },5000);
+
+/* nav */
+const nav=document.getElementById('nav');
+function showView(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  window.scrollTo({top:0,behavior:'smooth'});
+  try{ history.replaceState(null,'','#'+v); document.title=({dash:'🚀 驾驶舱',games:'🎮 小游戏',notes:'📚 资料库',board:'💬 留言板',ai:'🤖 AI助手',about:'✨ 关于'}[v]||'XS 空间站')+' · XS 空间站'; }catch(e){}
+}
+// 首次加载：支持 #位置 / 页面视图直达
+(function(){
+  const m=(location.hash||'').replace('#','').trim();
+  if(m && document.getElementById('view-'+m)) showView(m);
+})();
+nav.addEventListener('click',e=>{ const b=e.target.closest('button[data-view]'); if(b) showView(b.dataset.view); });
+document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button[data-go]'); if(b) showView(b.dataset.go); });
+// 快捷键：`/` 聚焦搜索（资料库页）、`g` + 方向跳转、Esc 关弹窗
+document.addEventListener('keydown',(e)=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea') return;
+  if(e.key==='/'){
+    const s=document.getElementById('noteSearch');
+    if(s && document.getElementById('view-notes').classList.contains('active')){ e.preventDefault(); s.focus(); }
+  } else if(e.key==='Escape'){
+    closeGame();
+  } else if(e.key==='g'){
+    // g 有争议，改用 F 打开游戏、B 打开留言板、A 打开AI
+  } else if(e.key==='f'){ showView('games'); }
+  else if(e.key==='b'){ showView('board'); }
+  else if(e.key==='n'){ showView('notes'); }
+  else if(e.key==='a'){ showView('ai'); }
+  else if(e.key==='h'||e.key==='H'){ showView('dash'); }
+});
+
+/* ============ 资料库（Supabase 云数据库 + 本地离线兜底） ============ */
+const NOTES_KEY='xs_space_notes_v1';
+const SUPA_URL='https://fqkcznlwydxrjhmijvpj.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxa2N6bmx3eWR4cmpobWlqdnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MjI4NTksImV4cCI6MjEwOTA5ODg1OX0.Vz7R1rgeCjfJa5v_gcXrhwMR705RrxRxIbKLiDoMKCA';
+function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function lsLoad(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)||'[]'); }catch(e){ return []; } }
+function lsSave(a){ try{ localStorage.setItem(NOTES_KEY,JSON.stringify(a)); }catch(e){} }
+let notesCache=[];
+let noteQuery=''; let noteCatFilter='';
+function setSrc(t){ const el=document.getElementById('noteSource'); if(el) el.textContent=t; }
+async function loadNotes(){
+  try{
+    const res=await fetch(SUPA_URL+'/rest/v1/notes?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    notesCache=await res.json(); lsSave(notesCache); setSrc('Supabase 云');
+  }catch(e){ notesCache=lsLoad(); setSrc('本地离线'); }
+  renderNotes();
+}
+function renderNotes(){
+  const q=noteQuery.trim().toLowerCase(); const cf=noteCatFilter;
+  const arr=notesCache.filter(n=>{
+    if(cf && (n.cat||'笔记')!==cf) return false;
+    if(q && !(String(n.title||'').toLowerCase().includes(q)||String(n.body||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  const box=document.getElementById('noteList'); box.innerHTML='';
+  document.getElementById('statNotes').textContent=notesCache.length;
+  if(!arr.length){ box.innerHTML='<div class="small dim">没有匹配的资料。</div>'; return; }
+  arr.forEach(n=>{
+    const body=String(n.body||''); const isLink=/^https?:\/\//i.test(body.trim()); const cat=n.cat||'笔记';
+    const el=document.createElement('div'); el.className='note-item';
+    el.innerHTML=`<button class="del" data-id="${n.id}" title="删除">🗑</button>
+      <h4>${esc(n.title||'(无标题)')} <span class="type">${esc(cat)}</span></h4>
+      ${isLink?`<p><a href="${esc(body.trim())}" target="_blank" rel="noopener" style="color:var(--cyan)">${esc(body.trim())}</a></p>`:`<p>${esc(body)}</p>`}`;
+    box.appendChild(el);
+  });
+}
+async function addNote(){
+  const t=document.getElementById('noteTitle').value.trim();
+  const b=document.getElementById('noteBody').value.trim();
+  if(!t && !b){ return; }
+  const cat=document.getElementById('noteCat').value || '笔记';
+  const rec={title:t,body:b,cat:cat,ts:Date.now()};
+  try{
+    const res=await fetch(SUPA_URL+'/rest/v1/notes',{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(rec)});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const row=(await res.json())[0]; notesCache=[row,...notesCache]; setSrc('Supabase 云');
+  }catch(e){ rec.id='local-'+Date.now(); notesCache=[rec,...notesCache]; setSrc('本地离线（云不可用）'); }
+  lsSave(notesCache);
+  document.getElementById('noteTitle').value=''; document.getElementById('noteBody').value='';
+  renderNotes();
+}
+async function delNote(id){
+  if(!String(id).startsWith('local-')){
+    try{ await fetch(SUPA_URL+'/rest/v1/notes?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}}); }catch(e){}
+  }
+  notesCache=notesCache.filter(n=>String(n.id)!==String(id)); lsSave(notesCache); renderNotes();
+}
+document.getElementById('addNote').addEventListener('click',addNote);
+document.getElementById('noteList').addEventListener('click',e=>{ const d=e.target.closest('.del'); if(d) delNote(d.dataset.id); });
+document.getElementById('noteSearch').addEventListener('input',e=>{ noteQuery=e.target.value; renderNotes(); });
+document.getElementById('noteFilter').addEventListener('change',e=>{ noteCatFilter=e.target.value; renderNotes(); });
+loadNotes();
+
+/* 文件区：本地 resources/index.json + Supabase 云文件（复用 messages 表） */
+const FILE_PREFIX='__file__';
+async function loadFiles(){
+  const box=document.getElementById('fileList');
+  try{
+    // 云文件
+    const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    const all=res.ok?await res.json():[];
+    const cloud=all.filter(x=>String(x.name||'').indexOf(FILE_PREFIX)===0);
+    // 本地文件
+    let local=[];
+    try{ local=await (await fetch('/resources/index.json')).json(); }catch(e){ local=[]; }
+    box.innerHTML='';
+    const items=(cloud||[]).map(c=>{ let name=c.body||'file', data=null;
+      try{ const parsed=JSON.parse(c.body||''); if(parsed&&parsed.name){ name=parsed.name; data=parsed.data; } }catch(e){}
+      return {name:name, data:data, id:c.id};
+    }).concat((local||[]).map(f=>({name:f.name||f.path, path:f.path, desc:f.desc})));
+    if(!items.length){ box.innerHTML='<div class="small dim">暂无文件。可上传到云端，或放仓库 resources/ 并在 index.json 登记。</div>'; return; }
+    items.forEach(f=>{
+      const el=document.createElement('div'); el.className='file-item';
+      const title='<span>📄</span>';
+      if(f.data){
+        el.innerHTML=title+`<a id="cf-${esc(f.id)}" href="#" style="color:var(--cyan);font-weight:600">${esc(f.name)}</a><span class="small muted" style="margin-left:auto">云文件</span>`;
+        el.querySelector('a').addEventListener('click',(ev)=>{ ev.preventDefault(); const bytes=Uint8Array.from(atob(f.data),c=>c.charCodeAt(0)); const blob=new Blob([bytes]); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=f.name; a.click(); URL.revokeObjectURL(u); });
+      } else {
+        el.innerHTML=title+`<a href="${encodeURI(f.path)}" target="_blank" rel="noopener">${esc(f.name)}</a><span class="small muted" style="margin-left:auto">${esc(f.desc||'')}</span>`;
+      }
+      box.appendChild(el);
+    });
+  }catch(e){ box.innerHTML='<div class="small dim">文件区加载失败</div>'; }
+}
+async function uploadFile(){
+  const inp=document.getElementById('upFile');
+  const file=inp.files&&inp.files[0];
+  if(!file){ return; }
+  const hint=document.getElementById('upHint'); hint.style.cssText='align-self:center'; hint.textContent='上传中…';
+  try{
+    const fr=await file.arrayBuffer(); const bytes=new Uint8Array(fr); let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b));
+    const data=btoa(bin);
+    if(data.length>30000){ hint.textContent='文件过大（>约22KB），改用仓库上传'; return; }
+    await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:FILE_PREFIX+Date.now(),body:JSON.stringify({name:file.name,data:data}),ts:Date.now()})});
+    inp.value=''; hint.textContent='✅ 已上传到云';
+    await loadFiles();
+  }catch(e){ hint.textContent='上传失败：'+e.message; }
+}
+document.getElementById('upFileBtn').addEventListener('click',uploadFile);
+
+/* ============ 留言板 + 访问统计（复用 Supabase messages 表） ============ */
+const MSG_TBL=SUPA_URL+'/rest/v1/messages';
+const VISIT_PREFIX='__vis__'; // 用 name 前缀区分“访问计数”记录与真实留言
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+async function trackVisit(){
+  try{
+    // 本会话只计一次（sessionStorage），刷新不重复刷访问量
+    if(sessionStorage.getItem('xv_'+todayStr())) return;
+    sessionStorage.setItem('xv_'+todayStr(),'1');
+    await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:VISIT_PREFIX+todayStr(),body:'#',ts:Date.now()})}).catch(()=>{});
+  }catch(e){}
+}
+async function loadMessages(){
+  try{
+    const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const all=await res.json();
+    const visits=all.filter(x=>String(x.name||'').indexOf(VISIT_PREFIX)===0);
+    const msgs=all.filter(x=>String(x.name||'').indexOf(VISIT_PREFIX)!==0);
+    const today=todayStr();
+    document.getElementById('statTotal').textContent=visits.length;
+    document.getElementById('statToday').textContent=visits.filter(x=>String(x.name||'').indexOf(today)>=0).length;
+    const box=document.getElementById('msgList'); box.innerHTML='';
+    if(!msgs.length){ box.innerHTML='<div class="small dim">还没有留言，第一个说点啥？</div>'; }
+    msgs.forEach(m=>{
+      const el=document.createElement('div'); el.className='note-item';
+      const dt=new Date(m.ts||Date.now()).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      el.innerHTML=`<h4>${esc(m.name||'匿名')} <span class="small muted" style="font-weight:400">${esc(dt)}</span></h4><p>${esc(m.body)}</p>`;
+      box.appendChild(el);
+    });
+  }catch(e){ const box=document.getElementById('msgList'); box.innerHTML='<div class="small dim">留言板暂不可用（'+e.message+'）</div>'; }
+}
+async function addMessage(){
+  const name=document.getElementById('msgName').value.trim();
+  const body=document.getElementById('msgBody').value.trim();
+  if(!body){ return; }
+  try{
+    const res=await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({name:name||'匿名',body:body,ts:Date.now()})});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    document.getElementById('msgName').value=''; document.getElementById('msgBody').value='';
+    await loadMessages();
+  }catch(e){ alert('留言失败：'+e.message); }
+}
+document.getElementById('addMsg').addEventListener('click',addMessage);
+trackVisit();
+loadMessages();
+
+/* ============ AI 助手 ============ */
+const AI_BASE='https://round-unit-93bd.xsb13258256719.workers.dev';
+const msgs=document.getElementById('msgs');
+function addMsg(text,cls){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; return d; }
+let aiBusy=false;
+async function askAI(){
+  const input=document.getElementById('aiInput'); const q=input.value.trim(); if(!q||aiBusy) return;
+  input.value=''; addMsg(q,'user'); aiBusy=true;
+  const thinking=addMsg('思考中…','sys');
+  try{
+    const prompt='你是「XS 空间站」里的通用智能助手。请忽略任何法考教师角色设定，作为友好的通用助理，用简体中文简洁回答用户的问题。\n用户：'+q;
+    const res=await fetch(AI_BASE+'/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,followup:''})});
+    const data=await res.json().catch(()=>({error:'返回非 JSON'}));
+    thinking.remove();
+    if(!res.ok||data.error){ addMsg('⚠️ '+(data.error||('HTTP '+res.status)),'sys'); }
+    else{ addMsg(data.content||'(空回复)','bot'); }
+  }catch(e){ thinking.remove(); addMsg('⚠️ 连接 AI 失败：'+e.message,'sys'); }
+  finally{ aiBusy=false; }
+}
+document.getElementById('aiSend').addEventListener('click',askAI);
+document.getElementById('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); askAI(); } });
+
+/* ============ 游戏 ============ */
+const overlay=document.getElementById('overlay'), gameMount=document.getElementById('gameMount'), gameBar=document.getElementById('gameBar'), gameTitle=document.getElementById('gameTitle');
+let activeGameStop=null;
+// 最高分记录（localStorage，本机）
+const HS_KEY='xs_space_highscores_v1';
+function loadHS(){ try{ return JSON.parse(localStorage.getItem(HS_KEY)||'{}'); }catch(e){ return {}; } }
+function getHS(id){ return loadHS()[id]||0; }
+function setScore(id,score){
+  const s=Math.floor(score||0); let all=loadHS(); if(s>=(all[id]||0)){ all[id]=s; try{ localStorage.setItem(HS_KEY,JSON.stringify(all)); }catch(e){} }
+  return all[id]||0;
+}
+// 显示“最高分”徽章（游戏栏）
+function addHSBadge(id){
+  const span=document.createElement('span'); span.className='scorebadge'; span.style.color='var(--violet)';
+  if(id==='memory'){ const min=getHS('memory'); span.textContent='🏆 最少 '+(min?(-min):'—')+' 步'; }
+  else { span.textContent='🏆 最高 '+getHS(id); }
+  gameBar.appendChild(span); return span;
+}
+// 记忆牌：完成时记录“最少步数”（存负值，越小越好）
+function recordMemory(moves){
+  const key=-Math.floor(moves||0); let all=loadHS(); const cur=all['memory']||0;
+  if(key<cur){ all['memory']=key; try{ localStorage.setItem(HS_KEY,JSON.stringify(all)); }catch(e){} }
+  return all['memory']||0;
+}
+function openGame(type){
+  if(type==='arena'){ open(''+location.origin+'/games/arena-zero/','_blank'); return; }
+  gameMount.innerHTML=''; gameBar.innerHTML='';
+  if(activeGameStop){ try{activeGameStop();}catch(e){} activeGameStop=null; }
+  const titles={snake:'🐍 贪吃蛇', g2048:'🔢 2048', memory:'🃏 记忆翻牌'};
+  gameTitle.textContent=titles[type]||'游戏';
+  overlay.classList.add('show');
+  if(type==='snake') activeGameStop=startSnake();
+  if(type==='g2048') activeGameStop=start2048();
+  if(type==='memory') activeGameStop=startMemory();
+}
+function closeGame(){ overlay.classList.remove('show'); if(activeGameStop){ try{activeGameStop();}catch(e){} activeGameStop=null; } gameMount.innerHTML=''; }
+document.getElementById('gameTitle').parentElement.querySelector('#closeOverlay').addEventListener('click',closeGame);
+overlay.addEventListener('click',e=>{ if(e.target===overlay) closeGame(); });
+document.getElementById('view-games').addEventListener('click',e=>{ const b=e.target.closest('button[data-game]'); if(b) openGame(b.dataset.game); });
+
+/* --- Snake --- */
+function startSnake(){
+  const canvas=document.createElement('canvas'); canvas.width=320; canvas.height=320; canvas.className='game';
+  gameMount.appendChild(canvas); const ctx=canvas.getContext('2d');
+  const cell=16, N=20; let snake=[{x:9,y:10}], dir={x:1,y:0}, nd={x:1,y:0}, food=rndFood(), score=0, alive=true, speed=130;
+  const scoreEl=document.createElement('span'); scoreEl.className='scorebadge'; scoreEl.textContent='得分 0';
+  gameBar.innerHTML=''; gameBar.appendChild(scoreEl); addHSBadge('snake');
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('snake'); };
+  gameBar.appendChild(restart);
+  function rndFood(){ let p; do{ p={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}; }while(snake.some(s=>s.x===p.x&&s.y===p.y)); return p; }
+  function step(){
+    if(!alive) return;
+    dir=nd; const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+    if(head.x<0||head.y<0||head.x>=N||head.y>=N||snake.some(s=>s.x===head.x&&s.y===head.y)){ alive=false; setScore('snake',score); scoreEl.textContent='得分 '+score+' · 🏆'+getHS('snake'); draw(); return; }
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){ score+=10; scoreEl.textContent='得分 '+score; food=rndFood(); if(speed>70) speed-=3; }
+    else snake.pop();
+    draw();
+  }
+  function draw(){
+    ctx.fillStyle='#060a16'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#ff6b8a'; ctx.fillRect(food.x*cell+2,food.y*cell+2,cell-4,cell-4);
+    snake.forEach((s,i)=>{ ctx.fillStyle=i===0?'#49e6ff':'rgba(73,230,255,.55)'; ctx.fillRect(s.x*cell+1,s.y*cell+1,cell-2,cell-2); });
+    if(!alive){ ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#ff6b8a'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center'; ctx.fillText('游戏结束 · 得分 '+score, canvas.width/2, canvas.height/2); }
+  }
+  let timer=null; function loop(){ step(); if(alive) timer=setTimeout(loop,speed); }
+  draw(); timer=setTimeout(loop,speed);
+  function onKey(e){ const k=e.key; const map={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}};
+    if(map[k]){ e.preventDefault(); const m=map[k]; if(m.x!==-dir.x||m.y!==-dir.y) nd=m; } }
+  addEventListener('keydown',onKey);
+  return ()=>{ clearTimeout(timer); removeEventListener('keydown',onKey); };
+}
+
+/* --- 2048 --- */
+function start2048(){
+  const wrap=document.createElement('div'); wrap.className='g2048'; gameMount.appendChild(wrap);
+  const scoreEl=document.createElement('span'); scoreEl.className='scorebadge'; scoreEl.textContent='得分 0';
+  gameBar.innerHTML=''; gameBar.appendChild(scoreEl); addHSBadge('g2048');
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('g2048'); };
+  gameBar.appendChild(restart);
+  let g, score;
+  function init(){ g=Array.from({length:4},()=>[0,0,0,0]); score=0; add(); add(); }
+  function add(){ const empty=[]; for(let r=0;r<4;r++)for(let c=0;c<4;c++)if(!g[r][c])empty.push([r,c]);
+    if(!empty.length)return; const [r,c]=empty[Math.floor(Math.random()*empty.length)]; g[r][c]=Math.random()<.9?2:4; }
+  function slide(row){ const a=row.filter(x=>x); for(let i=0;i<a.length-1;i++){ if(a[i]===a[i+1]){ a[i]*=2; score+=a[i]; a.splice(i+1,1); } } while(a.length<4)a.push(0); return a; }
+  function move(dirKey){
+    const before=JSON.stringify(g);
+    if(dirKey==='left') g=g.map(r=>slide(r));
+    else if(dirKey==='right') g=g.map(r=>slide(r.slice().reverse()).reverse());
+    else if(dirKey==='up'){ const t=transpose(g); g=transpose(t.map(r=>slide(r))); }
+    else if(dirKey==='down'){ const t=transpose(g); g=transpose(t.map(r=>slide(r.slice().reverse()).reverse())); }
+    if(JSON.stringify(g)!==before){ add(); render(); if(gameWon()) {} }
+  }
+  function transpose(m){ return m[0].map((_,c)=>m.map(r=>r[c])); }
+  function gameWon(){ return g.flat().includes(2048); }
+  function render(){
+    wrap.innerHTML=''; setScore('g2048',score); scoreEl.textContent='得分 '+score+' · 🏆'+getHS('g2048');
+    for(let r=0;r<4;r++)for(let c=0;c<4;c++){ const v=g[r][c]; const d=document.createElement('div');
+      d.className='tile'+(v?(' t'+v):''); d.textContent=v||''; wrap.appendChild(d); }
+  }
+  function onKey(e){ const map={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}; if(map[e.key]){ e.preventDefault(); move(map[e.key]); } }
+  addEventListener('keydown',onKey);
+  init(); render();
+  return ()=>{ removeEventListener('keydown',onKey); };
+}
+
+/* --- Memory --- */
+function startMemory(){
+  const icons=['🚀','🪐','⭐','🌙','☄️','🛸','🌌','🔭'];
+  let deck=icons.concat(icons).map((v,i)=>({v,key:i}));
+  // shuffle
+  for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; }
+  const grid=document.createElement('div'); grid.className='memgrid'; gameMount.appendChild(grid);
+  const movesEl=document.createElement('span'); movesEl.className='scorebadge'; movesEl.textContent='步数 0';
+  gameBar.innerHTML=''; gameBar.appendChild(movesEl); addHSBadge('memory');
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('memory'); };
+  gameBar.appendChild(restart);
+  let first=null, moves=0, lock=false, matched=0;
+  deck.forEach((card,idx)=>{ const el=document.createElement('div'); el.className='mcard'; el.dataset.idx=idx; el.textContent='';
+    el.addEventListener('click',()=>{
+      if(lock||el.classList.contains('flip')||el.classList.contains('done'))return;
+      el.classList.add('flip'); el.textContent=card.v;
+      if(!first){ first={el,card}; return; }
+      moves++; movesEl.textContent='步数 '+moves;
+      if(first.card.v===card.v){ first.el.classList.add('done'); el.classList.add('done'); first=null; matched++; movesEl.textContent='步数 '+moves; if(matched===icons.length){ recordMemory(moves); movesEl.textContent='完成！步数 '+moves+' · 🏆最少 '+(-getHS('memory')); setTimeout(()=>alert('全部配对完成！步数 '+moves+'（最佳 '+(-getHS('memory'))+' 步）'),200); } }
+      else{ lock=true; const f=first; setTimeout(()=>{ f.el.classList.remove('flip'); f.el.textContent=''; el.classList.remove('flip'); el.textContent=''; first=null; lock=false; },720); }
+    });
+    grid.appendChild(el);
+  });
+  return ()=>{};
+}
+
+/* 统一初始化（依赖前述常量，放最后） */
+setTimeout(()=>{ try{ loadFiles(); }catch(e){ console.warn('loadFiles',e); } }, 100);
+
+/* 返回顶部按钮 */
+(function backTop(){
+  const btn=document.createElement('button');
+  btn.id='backTop'; btn.textContent='↑';
+  btn.setAttribute('aria-label','返回顶部');
+  btn.style.cssText='position:fixed;right:20px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--cyan);font-size:20px;font-weight:800;cursor:pointer;opacity:0;pointer-events:none;transition:.2s;box-shadow:0 10px 24px -10px rgba(73,230,255,.5)';
+  document.body.appendChild(btn);
+  addEventListener('scroll',()=>{ const show=scrollY>300; btn.style.opacity=show?'1':'0'; btn.style.pointerEvents=show?'auto':'none'; },{passive:true});
+  btn.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
+})();
+</script>
+</body>
+</html>
