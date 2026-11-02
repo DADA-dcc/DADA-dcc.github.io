@@ -1935,29 +1935,105 @@ function startChess(){
   return ()=>{ wrap.remove(); };
 }
 
-/* --- 大肥鱼桌宠 --- */
-(function fishPet(){
-  if(document.querySelector('.fish-pet')) return;
-  const pet=document.createElement('div');
-  pet.className='fish-pet';
-  pet.style.cssText='position:fixed;left:16px;bottom:16px;z-index:60;width:120px;height:64px;cursor:grab;user-select:none;filter:drop-shadow(0 6px 14px rgba(73,230,255,.35));transition:transform .15s';
-  pet.innerHTML='<svg viewBox="0 0 120 64" width="120" height="64" style="overflow:visible">'
-    +'<ellipse cx="52" cy="32" rx="34" ry="24" fill="#3aa4d6" stroke="#1c5f86" stroke-width="2"/>'
-    +'<path d="M86 32 l26 -16 l-6 16 l6 16 Z" fill="#3aa4d6" stroke="#1c5f86" stroke-width="2"/>'
-    +'<circle cx="38" cy="24" r="4" fill="#fff"/><circle cx="41" cy="23" r="1.6" fill="#111"/>'
-    +'<path d="M88 24 q10 -10 22 -2" stroke="#2a2a2a" stroke-width="2" fill="none" opacity=".5"/>'
-    +'<circle cx="60" cy="40" r="5" fill="#ffd166"/>'
-    +'</svg>';
-  let dragging=false, offX=0, offY=0, baseLeft=16, baseBottom=16;
-  let phase=0, goingRight=true;
-  pet.addEventListener('mousedown',(e)=>{ dragging=true; const r=pet.getBoundingClientRect(); offX=e.clientX-r.left; offY=e.clientY-r.top; pet.style.cursor='grabbing'; e.preventDefault(); });
-  document.addEventListener('mousemove',(e)=>{ if(!dragging) return; const x=e.clientX-offX, y=e.clientY-offY; pet.style.left=x+'px'; pet.style.bottom=null; pet.style.bottom='auto'; pet.style.top=y+'px'; });
-  document.addEventListener('mouseup',()=>{ if(!dragging){ return; } dragging=false; pet.style.cursor='grab'; const r=pet.getBoundingClientRect(); baseLeft=r.left; baseBottom=innerHeight-r.bottom; const n=pet.cloneNode(true); });
-  saveDrag(pet);
-  function saveDrag(pet){ try{ localStorage.setItem('fish_pet_pos',JSON.stringify({left:pet.style.left,bottom:pet.style.bottom,top:pet.style.top})); }catch(e){} }
-  setInterval(()=>{ if(dragging) return; phase++; const bob=Math.sin(phase/12)*4; pet.style.marginBottom='0'; pet.style.transform='translateY('+bob+'px)'; },80);
-  document.body.appendChild(pet);
-  const stored=null; try{ const s=JSON.parse(localStorage.getItem('fish_pet_pos')||'null'); if(s&&s.left&&s.bottom){} }catch(e){}
+/* --- 大肥鱼桌宠（模仿 DSH dsh-pet：蓝发女仆·帧动画·拖拽·气泡·右键菜单）--- */
+(function petMascot(){
+  if(document.querySelector('.pet-root')) return;
+
+  // 注入样式
+  const css=document.createElement('style'); css.setAttribute('data-pet','1');
+  css.textContent=`
+  .pet-root{position:fixed;z-index:70;width:120px;user-select:none;touch-action:none;cursor:grab;filter:drop-shadow(0 8px 18px rgba(10,30,60,.4));}
+  .pet-root.dragging{cursor:grabbing;}
+  .pet-body{width:120px;height:auto;display:block;pointer-events:none;animation:petBob 2.6s ease-in-out infinite;}
+  @keyframes petBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  .pet-bubble{position:absolute;bottom:100%;left:50%;transform:translateX(-50%) translateY(6px);margin-bottom:8px;background:#f4f9ff;color:#1e3555;border:1px solid #cfe0f5;border-radius:12px;padding:6px 11px;font-size:12.5px;line-height:1.45;white-space:normal;width:max-content;max-width:200px;box-shadow:0 8px 22px rgba(10,30,60,.28);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;}
+  .pet-bubble.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .pet-bubble:after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:#f4f9ff;}
+  .pet-menu{position:fixed;z-index:72;background:#f4f9ff;border:1px solid #cfe0f5;border-radius:10px;box-shadow:0 12px 30px rgba(10,30,60,.3);padding:4px;font-size:13px;color:#1e3555;min-width:120px;}
+  .pet-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 12px;border-radius:7px;cursor:pointer;font:inherit;color:inherit;}
+  .pet-menu button:hover{background:#e2eeff;}
+  .pet-restore{position:fixed;z-index:70;right:16px;bottom:76px;width:42px;height:42px;border-radius:50%;border:1px solid #cfe0f5;background:#f4f9ff;cursor:pointer;font-size:19px;box-shadow:0 8px 20px rgba(10,30,60,.3);}
+  `;
+  document.head.appendChild(css);
+
+  const ANS={ idle:{dir:'idle',n:20,fps:8,mode:'pingpong'}, eat:{dir:'eat',n:16,fps:8,mode:'once'},
+    sleep:{dir:'sleep',n:16,fps:8,mode:'once'}, code:{dir:'code',n:16,fps:8,mode:'once'},
+    dance:{dir:'dance',n:16,fps:8,mode:'once'} };
+  const ACTIONS=['eat','sleep','code','dance'];
+  const cache={};
+  function fpath(a,i){ return 'pet/'+ANS[a].dir+'/f_'+String(i+1).padStart(2,'0')+'.webp'; }
+  function preload(a){ if(cache[a]) return []; cache[a]=[]; for(let i=0;i<ANS[a].n;i++){ const im=new Image(); im.src=fpath(a,i); cache[a].push(im);} return cache[a]; }
+
+  const root=document.createElement('div'); root.className='pet-root';
+  const bubble=document.createElement('div'); bubble.className='pet-bubble';
+  const img=document.createElement('img'); img.className='pet-body'; img.alt='大肥鱼'; img.draggable=false;
+  root.appendChild(bubble); root.appendChild(img);
+  document.body.appendChild(root);
+
+  // 位置
+  let pos={ x: innerWidth-150, y: innerHeight-200 };
+  try{ const s=JSON.parse(localStorage.getItem('pet_pos_v3')||'null'); if(s&&typeof s.x==='number') pos=s; }catch(e){}
+  function applyPos(){ root.style.left=Math.round(pos.x)+'px'; root.style.top=Math.round(pos.y)+'px'; }
+  function clamp(){ const w=120,h=150; pos.x=Math.max(0,Math.min(innerWidth-w,pos.x)); pos.y=Math.max(0,Math.min(innerHeight-h,pos.y)); }
+  clamp(); applyPos();
+
+  // 动画
+  let cur='none', idx=0, dir=1, busy=false;
+  function render(){ img.src=fpath(cur,idx); }
+  function tick(){
+    const A=ANS[cur];
+    if(A.mode==='pingpong'){
+      idx+=dir; if(idx>=A.n-1){ idx=A.n-1; dir=-1; } else if(idx<=0){ idx=0; dir=1; }
+    } else {
+      idx++; if(idx>=A.n){ cur='idle'; idx=0; dir=1; busy=false; render(); return; }
+    }
+    render();
+  }
+  function play(name){ if(busy) return; busy=true; cur=name; idx=0; dir=1; render(); }
+  Object.keys(ANS).forEach(preload);
+  cur='idle'; idx=0; render();
+  setInterval(tick, 125);
+
+  // 气泡台词
+  const LINES=['主人～今天也要加油哦♪','咕噜咕噜…鱼鱼在吐泡泡','写代码累了吧，摸摸头～','要不要休息一下下？','大肥鱼今天也在吃白饭呢','Ciallo～(∠・ω< )⌒★','主人又在摸鱼吗？带我一个～','这里好安静…适合发呆','有鱼吃就满足啦','嘿嘿，被主人发现我在偷懒了'];
+  let sayTimer=null;
+  function say(text,ms){ if(!text){ text=LINES[Math.floor(Math.random()*LINES.length)]; } bubble.textContent=text; bubble.classList.add('show'); clearTimeout(sayTimer); sayTimer=setTimeout(()=>bubble.classList.remove('show'), ms||3200); }
+  setInterval(()=>{ if(!busy && !dragging && !hidden && Math.random()<0.5) say(null); }, 26000);
+
+  // 拖拽 / 点击
+  let dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0, hidden=false;
+  root.addEventListener('pointerdown',(e)=>{ if(e.button!==0) return; dragging=true; moved=false; sx=e.clientX; sy=e.clientY; ox=e.clientX-pos.x; oy=e.clientY-pos.y; try{ root.setPointerCapture(e.pointerId);}catch(_){}; root.classList.add('dragging'); });
+  root.addEventListener('pointermove',(e)=>{ if(!dragging) return; if(Math.abs(e.clientX-sx)>4||Math.abs(e.clientY-sy)>4) moved=true; pos.x=e.clientX-ox; pos.y=e.clientY-oy; applyPos(); });
+  root.addEventListener('pointerup',(e)=>{ if(!dragging) return; dragging=false; root.classList.remove('dragging'); clamp(); applyPos(); try{ localStorage.setItem('pet_pos_v3',JSON.stringify(pos)); }catch(_){}; if(!moved){ onTap(); } });
+  function onTap(){ if(busy) return; say(null); play(ACTIONS[Math.floor(Math.random()*ACTIONS.length)]); }
+
+  // 右键菜单
+  let menu=null;
+  function closeMenu(){ if(menu){ menu.remove(); menu=null; } }
+  root.addEventListener('contextmenu',(e)=>{ e.preventDefault(); openMenu(e.clientX,e.clientY); });
+  document.addEventListener('pointerdown',(e)=>{ if(menu && !menu.contains(e.target)) closeMenu(); }, true);
+  function openMenu(x,y){
+    closeMenu();
+    menu=document.createElement('div'); menu.className='pet-menu';
+    const items=[['换个动作',()=>{ play(ACTIONS[Math.floor(Math.random()*ACTIONS.length)]); }],
+      ['睡个觉',()=>{ play('sleep'); say('Zzz…别吵我哦'); }],
+      ['说句话',()=>{ say(null); }],
+      ['回到角落',()=>{ pos={x:innerWidth-150,y:innerHeight-200}; clamp(); applyPos(); localStorage.setItem('pet_pos_v3',JSON.stringify(pos)); }],
+      ['隐藏鱼鱼',()=>{ hidePet(); }]];
+    for(const [t,fn] of items){ const b=document.createElement('button'); b.textContent=t; b.onclick=(ev)=>{ ev.stopPropagation(); fn(); closeMenu(); }; menu.appendChild(b); }
+    menu.style.left=Math.min(x, innerWidth-150)+'px'; menu.style.top=Math.min(y, innerHeight-200)+'px';
+    document.body.appendChild(menu);
+  }
+  function hidePet(){ hidden=true; root.style.display='none'; say('那我先溜啦～'); showRestore(); }
+  function showRestore(){
+    let r=document.querySelector('.pet-restore'); if(r) return;
+    r=document.createElement('button'); r.className='pet-restore'; r.textContent='🐟'; r.title='唤回大肥鱼';
+    r.onclick=()=>{ r.remove(); hidden=false; root.style.display='block'; say('我回来啦！'); };
+    document.body.appendChild(r);
+  }
+
+  // 首次问候
+  setTimeout(()=>say('登舰啦～我是桌面上的大肥鱼♪', 3500), 1200);
 })();
 
 /* 统一初始化（依赖前述常量，放最后） */
