@@ -1956,43 +1956,28 @@ function startChess(){
   `;
   document.head.appendChild(css);
 
-  const ANS={ idle:{dir:'idle',n:20,fps:8,mode:'pingpong'}, eat:{dir:'eat',n:16,fps:8,mode:'once'},
-    sleep:{dir:'sleep',n:16,fps:8,mode:'once'}, code:{dir:'code',n:16,fps:8,mode:'once'},
-    dance:{dir:'dance',n:16,fps:8,mode:'once'} };
-  const ACTIONS=['eat','sleep','code','dance'];
-  const cache={};
-  function fpath(a,i){ return 'pet/'+ANS[a].dir+'/f_'+String(i+1).padStart(2,'0')+'.webp'; }
-  function preload(a){ if(cache[a]) return []; cache[a]=[]; for(let i=0;i<ANS[a].n;i++){ const im=new Image(); im.src=fpath(a,i); cache[a].push(im);} return cache[a]; }
+  // ---- 动画清单：运行时拉取 pet2/manifest.json（含全部 106 个动画）----
+  const CACHE={}; let ANIM_ARR=[], ANIMS={}, IDLE=[], ONCE=[], REACT=[], DRAG_ID=null;
+  function fpath(id,i){ return 'pet2/'+id+'/f_'+String(i+1).padStart(2,'0')+'.webp'; }
+  function preloadAnim(a){ if(CACHE[a.id]) return CACHE[a.id]; const arr=[]; for(let i=0;i<a.count;i++){ const im=new Image(); im.src=fpath(a.id,i); arr.push(im);} CACHE[a.id]=arr; return arr; }
+  function byName(n){ return ANIM_ARR.find(a=>a.name===n); }
 
-  const root=document.createElement('div'); root.className='pet-root';
-  const bubble=document.createElement('div'); bubble.className='pet-bubble';
-  const img=document.createElement('img'); img.className='pet-body'; img.alt='大肥鱼'; img.draggable=false;
-  root.appendChild(bubble); root.appendChild(img);
-  document.body.appendChild(root);
-
-  // 位置
-  let pos={ x: innerWidth-150, y: innerHeight-200 };
-  try{ const s=JSON.parse(localStorage.getItem('pet_pos_v3')||'null'); if(s&&typeof s.x==='number') pos=s; }catch(e){}
-  function applyPos(){ root.style.left=Math.round(pos.x)+'px'; root.style.top=Math.round(pos.y)+'px'; }
-  function clamp(){ const w=120,h=150; pos.x=Math.max(0,Math.min(innerWidth-w,pos.x)); pos.y=Math.max(0,Math.min(innerHeight-h,pos.y)); }
-  clamp(); applyPos();
-
-  // 动画
-  let cur='none', idx=0, dir=1, busy=false;
-  function render(){ img.src=fpath(cur,idx); }
+  let cur=null, idx=0, dir=1, busy=false, dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0, hidden=false;
+  function render(){ if(cur) img.src=fpath(cur.id, idx); }
   function tick(){
-    const A=ANS[cur];
-    if(A.mode==='pingpong'){
-      idx+=dir; if(idx>=A.n-1){ idx=A.n-1; dir=-1; } else if(idx<=0){ idx=0; dir=1; }
-    } else {
-      idx++; if(idx>=A.n){ cur='idle'; idx=0; dir=1; busy=false; render(); return; }
-    }
+    if(!cur) return;
+    if(cur.mode==='loop'){ idx+=dir; if(idx>=cur.count-1){ idx=cur.count-1; dir=-1; } else if(idx<=0){ idx=0; dir=1; } }
+    else { idx++; if(idx>=cur.count){ cur=null; busy=false; goIdle(); return; } }
     render();
   }
-  function play(name){ if(busy) return; busy=true; cur=name; idx=0; dir=1; render(); }
-  Object.keys(ANS).forEach(preload);
-  cur='idle'; idx=0; render();
-  setInterval(tick, 125);
+  function play(a){ if(!a || !a.count) return; cur=a; idx=0; dir=1; busy=(a.mode!=='loop'); render(); }
+  function goIdle(){ if(!IDLE.length) return; const a=IDLE[Math.floor(Math.random()*IDLE.length)]; cur=a; idx=0; dir=1; busy=false; render(); }
+  function playRandomOnce(){ const pool=ONCE.length?ONCE:ANIM_ARR; if(!pool.length) return; const a=pool[Math.floor(Math.random()*pool.length)]; preloadAnim(a); play(a); }
+  function playRandomReact(){ const pool=REACT.length?REACT:(ONCE.length?ONCE:ANIM_ARR); if(!pool.length) return; const a=pool[Math.floor(Math.random()*pool.length)]; preloadAnim(a); play(a); }
+  function playSleep(){ const s=byName('原地小憩沉眠')||byName('深度睡眠')||byName('打瞌睡被惊醒'); if(s) play(s); }
+  setInterval(tick, 150);
+  // 待机轮换
+  setInterval(()=>{ if(!busy && !dragging && !hidden && cur && cur.mode==='loop') goIdle(); }, 14000);
 
   // 气泡台词
   const LINES=['主人～今天也要加油哦♪','咕噜咕噜…鱼鱼在吐泡泡','写代码累了吧，摸摸头～','要不要休息一下下？','大肥鱼今天也在吃白饭呢','Ciallo～(∠・ω< )⌒★','主人又在摸鱼吗？带我一个～','这里好安静…适合发呆','有鱼吃就满足啦','嘿嘿，被主人发现我在偷懒了'];
@@ -2001,11 +1986,11 @@ function startChess(){
   setInterval(()=>{ if(!busy && !dragging && !hidden && Math.random()<0.5) say(null); }, 26000);
 
   // 拖拽 / 点击
-  let dragging=false, moved=false, sx=0, sy=0, ox=0, oy=0, hidden=false;
-  root.addEventListener('pointerdown',(e)=>{ if(e.button!==0) return; dragging=true; moved=false; sx=e.clientX; sy=e.clientY; ox=e.clientX-pos.x; oy=e.clientY-pos.y; try{ root.setPointerCapture(e.pointerId);}catch(_){}; root.classList.add('dragging'); });
-  root.addEventListener('pointermove',(e)=>{ if(!dragging) return; if(Math.abs(e.clientX-sx)>4||Math.abs(e.clientY-sy)>4) moved=true; pos.x=e.clientX-ox; pos.y=e.clientY-oy; applyPos(); });
-  root.addEventListener('pointerup',(e)=>{ if(!dragging) return; dragging=false; root.classList.remove('dragging'); clamp(); applyPos(); try{ localStorage.setItem('pet_pos_v3',JSON.stringify(pos)); }catch(_){}; if(!moved){ onTap(); } });
-  function onTap(){ if(busy) return; say(null); play(ACTIONS[Math.floor(Math.random()*ACTIONS.length)]); }
+  root.addEventListener('pointerdown',(e)=>{ if(e.button!==0) return; dragging=true; moved=false; sx=e.clientX; sy=e.clientY; ox=e.clientX-pos.x; oy=e.clientY-pos.y; try{ root.setPointerCapture(e.pointerId); }catch(_){} root.classList.add('dragging'); });
+  root.addEventListener('pointermove',(e)=>{ if(!dragging) return; if(!moved && (Math.abs(e.clientX-sx)>4||Math.abs(e.clientY-sy)>4)){ moved=true; if(DRAG_ID && ANIMS[DRAG_ID]) play(ANIMS[DRAG_ID]); } pos.x=e.clientX-ox; pos.y=e.clientY-oy; applyPos(); });
+  root.addEventListener('pointerup',(e)=>{ if(!dragging) return; dragging=false; root.classList.remove('dragging'); clamp(); applyPos(); try{ localStorage.setItem('pet_pos_v3',JSON.stringify(pos)); }catch(_){} if(moved){ goIdle(); } else { onTap(); } });
+  function onTap(){ if(!loadedAnim()) return; say(null); playRandomReact(); }
+  function loadedAnim(){ return ANIM_ARR.length>0; }
 
   // 右键菜单
   let menu=null;
@@ -2015,8 +2000,10 @@ function startChess(){
   function openMenu(x,y){
     closeMenu();
     menu=document.createElement('div'); menu.className='pet-menu';
-    const items=[['换个动作',()=>{ play(ACTIONS[Math.floor(Math.random()*ACTIONS.length)]); }],
-      ['睡个觉',()=>{ play('sleep'); say('Zzz…别吵我哦'); }],
+    const items=[['表演才艺…',()=>{ openTalent(); }],
+      ['随机动作',()=>{ playRandomOnce(); }],
+      ['随机待机',()=>{ goIdle(); }],
+      ['睡个觉',()=>{ playSleep(); say('Zzz…别吵我哦'); }],
       ['说句话',()=>{ say(null); }],
       ['回到角落',()=>{ pos={x:innerWidth-150,y:innerHeight-200}; clamp(); applyPos(); localStorage.setItem('pet_pos_v3',JSON.stringify(pos)); }],
       ['隐藏鱼鱼',()=>{ hidePet(); }]];
@@ -2031,6 +2018,46 @@ function startChess(){
     r.onclick=()=>{ r.remove(); hidden=false; root.style.display='block'; say('我回来啦！'); };
     document.body.appendChild(r);
   }
+
+  // 才艺面板样式
+  (function(){ const s=document.createElement('style'); s.textContent=`
+  .pet-talent{position:fixed;z-index:73;right:16px;bottom:16px;width:min(360px,86vw);max-height:70vh;background:#f4f9ff;border:1px solid #cfe0f5;border-radius:14px;box-shadow:0 20px 50px rgba(10,30,60,.4);display:flex;flex-direction:column;overflow:hidden;color:#1e3555;}
+  .pet-talent-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-size:13.5px;font-weight:700;border-bottom:1px solid #dbe8f8;}
+  .pet-talent-x{border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:#5a7396;padding:0 4px;}
+  .pet-talent-list{overflow:auto;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .pet-talent-list button{border:1px solid #dbe8f8;background:#fff;border-radius:8px;padding:7px 8px;font-size:12px;cursor:pointer;color:#26456e;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pet-talent-list button:hover{background:#e6f0ff;border-color:#a9c8ee;}
+  `; document.head.appendChild(s); })();
+
+  // 才艺面板：列出全部动画供选择
+  let talentPanel=null;
+  function openTalent(){
+    closeTalent();
+    const wrap=document.createElement('div'); wrap.className='pet-talent';
+    const head=document.createElement('div'); head.className='pet-talent-head'; head.textContent='大肥鱼的才艺（' + ANIM_ARR.length + '）';
+    const x=document.createElement('button'); x.className='pet-talent-x'; x.textContent='×'; x.onclick=closeTalent; head.appendChild(x);
+    const list=document.createElement('div'); list.className='pet-talent-list';
+    ANIM_ARR.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.name; b.title=a.name; b.onclick=(ev)=>{ ev.stopPropagation(); closeTalent(); preloadAnim(a); play(a); say(a.name.replace(/-/g,' · ')); }; list.appendChild(b); });
+    wrap.appendChild(head); wrap.appendChild(list); document.body.appendChild(wrap); talentPanel=wrap;
+  }
+  function closeTalent(){ if(talentPanel){ talentPanel.remove(); talentPanel=null; } }
+
+  // 载入动画清单（全部 106 个）并启动
+  (async function initAnims(){
+    try{
+      const res=await fetch('pet2/manifest.json',{cache:'no-store'});
+      const list=await res.json();
+      ANIM_ARR=(Array.isArray(list)?list:[]).filter(a=>a && a.count>0);
+      ANIM_ARR.forEach(a=>{ ANIMS[a.id]=a; });
+      IDLE=ANIM_ARR.filter(a=>a.mode==='loop');
+      ONCE=ANIM_ARR.filter(a=>a.mode==='once');
+      REACT=ANIM_ARR.filter(a=>a.name.indexOf('点击回应')===0);
+      DRAG_ID=(byName('被鼠标拖拽悬空反馈')||{}).id||null;
+      IDLE.slice(0,10).forEach(preloadAnim);
+      if(!IDLE.length && ANIM_ARR.length) IDLE=[ANIM_ARR[0]];
+      goIdle();
+    }catch(e){ console.warn('pet manifest load failed', e); }
+  })();
 
   // 首次问候
   setTimeout(()=>say('登舰啦～我是桌面上的大肥鱼♪', 3500), 1200);

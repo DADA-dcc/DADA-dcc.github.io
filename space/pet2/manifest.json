@@ -1,0 +1,638 @@
+[
+  {
+    "id": "a001",
+    "name": "被落叶淹没",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a002",
+    "name": "被鼠标拖拽悬空反馈",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a003",
+    "name": "被吓一跳",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a004",
+    "name": "变鸽子",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a005",
+    "name": "插茱萸赏菊",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a006",
+    "name": "拆礼物",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a007",
+    "name": "超大伸懒腰",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a008",
+    "name": "晨间刷牙",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a009",
+    "name": "吃白饭",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a010",
+    "name": "吃冰淇淋融化",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a011",
+    "name": "吃大闸蟹",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a012",
+    "name": "吃饺子",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a013",
+    "name": "吃腊八粥",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a014",
+    "name": "吃年糕",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a015",
+    "name": "吃青团",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a016",
+    "name": "吃汤圆",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a017",
+    "name": "吃糖葫芦",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a018",
+    "name": "吃晚餐",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a019",
+    "name": "吃午餐",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a020",
+    "name": "吃西瓜",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a021",
+    "name": "吃早餐",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a022",
+    "name": "吃长寿面",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a023",
+    "name": "吃重阳糕",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a024",
+    "name": "吃粽子",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a025",
+    "name": "吃Token",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a026",
+    "name": "抽陀螺",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a027",
+    "name": "穿针乞巧",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a028",
+    "name": "吹笛子",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a029",
+    "name": "吹气球",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a030",
+    "name": "打瞌睡被惊醒",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a031",
+    "name": "大口吃零食",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a032",
+    "name": "待机呼吸休闲",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a033",
+    "name": "荡秋千",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a034",
+    "name": "点击回应-傲娇生气",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a035",
+    "name": "点击回应-害羞惊讶",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a036",
+    "name": "点击回应-开心跃动",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a037",
+    "name": "点击回应-挠痒咯咯笑",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a038",
+    "name": "点击回应-元气挥手",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a039",
+    "name": "东张西望",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a040",
+    "name": "动物环绕",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a041",
+    "name": "堆雪人",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a042",
+    "name": "放风筝",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a043",
+    "name": "放河灯",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a044",
+    "name": "放孔明灯",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a045",
+    "name": "放烟花",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a046",
+    "name": "工作状态-垂头叹气冒汗",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a047",
+    "name": "工作状态-忙碌点按",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a048",
+    "name": "工作状态-清点归档",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a049",
+    "name": "工作状态-雀跃庆祝",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a050",
+    "name": "工作状态-思考冒泡",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a051",
+    "name": "工作状态-原地踱步张望",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a052",
+    "name": "哈欠连天",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a053",
+    "name": "蝴蝶蜜蜂环绕头顶开花",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a054",
+    "name": "鲸鱼吐泡泡特效",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a055",
+    "name": "可爱宅舞",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a056",
+    "name": "蓝鲸现世",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a057",
+    "name": "撸猫",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a058",
+    "name": "萌化小幽灵",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a059",
+    "name": "女仆屈膝礼仪",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a060",
+    "name": "螃蟹走路",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a061",
+    "name": "凭空生花",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a062",
+    "name": "扑克魔术",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a063",
+    "name": "骑木马",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a064",
+    "name": "轻快记录",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a065",
+    "name": "轻快摇摆舞",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a066",
+    "name": "三球抛接",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a067",
+    "name": "深度思考碎碎念",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a068",
+    "name": "是啊，吃什么",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a069",
+    "name": "收红包",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a070",
+    "name": "涮火锅",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a071",
+    "name": "碎碎念-擦桌碎碎念",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a072",
+    "name": "碎碎念-对屏碎碎念",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a073",
+    "name": "碎碎念-发呆碎碎念",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a074",
+    "name": "讨糖南瓜灯",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a075",
+    "name": "踢毽子",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a076",
+    "name": "偷吃零食被抓住",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a077",
+    "name": "玩水枪",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a078",
+    "name": "玩游戏气急败坏",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a079",
+    "name": "舞狮头",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a080",
+    "name": "下五子棋",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a081",
+    "name": "小幅度原地360度旋转展示",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a082",
+    "name": "小提琴演奏",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a083",
+    "name": "写代码",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a084",
+    "name": "写福字",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a085",
+    "name": "摇扇纳凉",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a086",
+    "name": "用鲸鱼尾巴拍打地面",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a087",
+    "name": "优雅女仆舞",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a088",
+    "name": "悠闲哼歌",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a089",
+    "name": "余额-袋空如洗",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a090",
+    "name": "余额-分文不剩",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a091",
+    "name": "余额-金袋叮当",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a092",
+    "name": "余额-钱袋满溢",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a093",
+    "name": "余额-钱袋如常",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a094",
+    "name": "余额-数金皱眉",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a095",
+    "name": "原地蹲下玩玩具汽车",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a096",
+    "name": "原地漂浮踏步",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a097",
+    "name": "原地敲击桌面互动",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a098",
+    "name": "原地跳跃抓碎头顶物品",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a099",
+    "name": "原地小憩沉眠",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a100",
+    "name": "原地重力下蹲压缩",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a101",
+    "name": "原地专心玩魔方",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a102",
+    "name": "原地左转奔跑",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a103",
+    "name": "照镜子",
+    "count": 18,
+    "mode": "loop"
+  },
+  {
+    "id": "a104",
+    "name": "整体换装试色",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a105",
+    "name": "中秋赏月吃月饼",
+    "count": 18,
+    "mode": "once"
+  },
+  {
+    "id": "a106",
+    "name": "装点圣诞树",
+    "count": 18,
+    "mode": "once"
+  }
+]
