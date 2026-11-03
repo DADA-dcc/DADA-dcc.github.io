@@ -1982,7 +1982,7 @@ function startChess(){
           try{ s.worker.postMessage({type:'go', fen:fen, limit:limit}); }catch(e){ done=true; resolve(null); }
           return;
         }
-        if(Date.now()-t0>5000 || s.failed){ done=true; resolve(null); return; }
+        if(Date.now()-t0>15000 || s.failed){ done=true; resolve(null); return; }
         setTimeout(waitReady, 60);
       })();
     });
@@ -2050,8 +2050,10 @@ function startChess(){
   function finishAITurn(){ busy=false; selected=null; targets=[]; render(); var st=status(); if(st==='on' && xq.in_check()) sndCheck(); }
   function aiTurn(){
     if(xq.game_over()) return;
-    busy=true; render(); info.textContent='AI \u601D\u8003\u4E2D\u2026';
+    busy=true; render();
     var eng = isEngineLevel();
+    var pref = window.__pf;
+    info.textContent = eng ? ((pref && pref.ready) ? 'AI \u601D\u8003\u4E2D\u2026' : '\u5F15\u64CE\u52A0\u8F7D\u4E2D\u2026') : 'AI \u601D\u8003\u4E2D\u2026';
     if(eng){
       var fen=toPFen(xq.fen()); var lim=limitForLevel(); var to=(lv.value==='5')?9000:7000;
       engineMove(fen, lim, to).then(function(mv){
