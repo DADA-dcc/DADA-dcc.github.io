@@ -1771,73 +1771,139 @@ function startMemory(){
 function startGomoku(){
   const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px';
   gameMount.appendChild(wrap);
-  const bar=document.createElement('div'); bar.className='scorebadge'; bar.textContent='黑先 · 点击落子';
-  gameBar.innerHTML=''; gameBar.appendChild(bar);
-  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('gomoku'); };
-  gameBar.appendChild(restart);
-  const N=15, cell=22, pad=28, size=N*cell;
-  const cv=document.createElement('canvas'); cv.width=size+pad*2; cv.height=size+pad*2; cv.style.touchAction='none';
+  const msgEl=document.createElement('div'); msgEl.className='scorebadge'; msgEl.textContent='黑先（你）\u00B7 \u70B9\u51FB\u843D\u5B50';
+  gameBar.innerHTML=''; gameBar.appendChild(msgEl);
+  const undoBtn=document.createElement('button'); undoBtn.className='btn ghost'; undoBtn.textContent='\u6094\u68CB'; undoBtn.onclick=doUndo;
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='\u91CD\u5F00'; restart.onclick=function(){ closeGame(); openGame('gomoku'); };
+  gameBar.appendChild(undoBtn); gameBar.appendChild(restart);
+
+  const N=15;
+  const cell=Math.min(26, Math.floor((Math.min(innerWidth,520)-40)/15));
+  const pad=Math.round(cell*0.8);
+  const size=(N-1)*cell;
+  const cv=document.createElement('canvas'); cv.width=size+pad*2; cv.height=size+pad*2; cv.style.touchAction='none'; cv.style.maxWidth='100%';
   wrap.appendChild(cv); const ctx=cv.getContext('2d');
-  let board=Array.from({length:N},()=>Array(N).fill(0)); let over=false, msgEl=bar;
-  function drawGrid(){
-    ctx.fillStyle='#e0b577'; ctx.fillRect(0,0,cv.width,cv.height);
+  const HUMAN=1, AI=2;
+  let board=Array.from({length:N},function(){return Array(N).fill(0);});
+  let over=false, busy=false, history=[], last=null;
+  const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
+  function inb(r,c){ return r>=0&&c>=0&&r<N&&c<N; }
+  function px(c){ return pad+c*cell; } function py(r){ return pad+r*cell; }
+
+  function draw(){
+    ctx.fillStyle='#e3b877'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.strokeStyle='#5b3a1e'; ctx.lineWidth=1;
-    for(let i=0;i<N;i++){
-      ctx.beginPath(); ctx.moveTo(pad,pad+i*cell); ctx.lineTo(pad+(N-1)*cell,pad+i*cell); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(pad+i*cell,pad); ctx.lineTo(pad+i*cell,pad+(N-1)*cell); ctx.stroke();
+    for(var i=0;i<N;i++){
+      ctx.beginPath(); ctx.moveTo(px(0),py(i)); ctx.lineTo(px(N-1),py(i)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px(i),py(0)); ctx.lineTo(px(i),py(N-1)); ctx.stroke();
     }
-    for(const [r,c] of [[3,3],[3,11],[7,7],[11,3],[11,11]]){ ctx.beginPath(); ctx.arc(pad+c*cell,pad+r*cell,3,0,7); ctx.fillStyle='#5b3a1e'; ctx.fill(); }
+    var stars=[[3,3],[3,11],[11,3],[11,11],[7,7]];
+    for(var k=0;k<stars.length;k++){ var sp=stars[k]; ctx.beginPath(); ctx.arc(px(sp[1]),py(sp[0]),3,0,Math.PI*2); ctx.fillStyle='#5b3a1e'; ctx.fill(); }
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){ var v=board[r][c]; if(!v) continue; drawStone(r,c,v); }
+    if(last){ var lx=px(last.c), ly=py(last.r); ctx.beginPath(); ctx.arc(lx,ly,cell*0.18,0,Math.PI*2); ctx.fillStyle='#ff5252'; ctx.fill(); }
   }
-  function drawStone(r,c,v){ ctx.beginPath(); ctx.arc(pad+c*cell,pad+r*cell,cell*0.42,0,7); ctx.fillStyle=v===1?'#111':'#f5f5f5'; ctx.fill(); ctx.strokeStyle=v===1?'#000':'#999'; ctx.lineWidth=1; ctx.stroke(); }
-  function drawAll(){ drawGrid(); for(let r=0;r<N;r++)for(let c=0;c<N;c++) if(board[r][c]) drawStone(r,c,board[r][c]); }
-  function five(r,c,v){ // 方向检查
-    for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
-      let n=1;
-      for(let k=1;k<5;k++){ const rr=r+dr*k, cc=c+dc*k; if(rr<0||cc<0||rr>=N||cc>=N||board[rr][cc]!==v) break; n++; }
-      for(let k=1;k<5;k++){ const rr=r-dr*k, cc=c-dc*k; if(rr<0||cc<0||rr>=N||cc>=N||board[rr][cc]!==v) break; n++; }
-      if(n>=5) return true;
-    }
+  function drawStone(r,c,v){
+    var x=px(c), y=py(r);
+    var g=ctx.createRadialGradient(x-cell*0.15,y-cell*0.15,cell*0.1,x,y,cell*0.5);
+    if(v===HUMAN){ g.addColorStop(0,'#4a4a4a'); g.addColorStop(1,'#0d0d0d'); } else { g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#c9c9c9'); }
+    ctx.beginPath(); ctx.arc(x,y,cell*0.44,0,Math.PI*2); ctx.fillStyle=g; ctx.fill();
+    ctx.strokeStyle= v===HUMAN?'#000':'#9a9a9a'; ctx.lineWidth=1; ctx.stroke();
+  }
+
+  function five(r,c,v){
+    for(var d=0;d<DIRS.length;d++){ var dr=DIRS[d][0], dc=DIRS[d][1], n=1;
+      for(var k=1;k<5;k++){ var rr=r+dr*k, cc=c+dc*k; if(!inb(rr,cc)||board[rr][cc]!==v) break; n++; }
+      for(var k2=1;k2<5;k2++){ var rr2=r-dr*k2, cc2=c-dc*k2; if(!inb(rr2,cc2)||board[rr2][cc2]!==v) break; n++; }
+      if(n>=5) return true; }
     return false;
   }
-  function emptyCells(){ const e=[]; for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(!board[r][c])e.push([r,c]); return e; }
-  function aiMove(){ // 简单启发：尽量挡/成
-    const e=emptyCells(); if(!e.length) return;
-    // 先攻：自己能否五连 / 挡对方即将五连；简化为选最优点
-    let best=null, bestScore=-1;
-    for(const [r,c] of e){
-      let s=0;
-      // 对 AI 自己加成
-      board[r][c]=2; if(five(r,c,2)) s+=100000; else s+=scoreAt(r,c,2)*10;
-      board[r][c]=1; if(five(r,c,1)) s+=50000; else s+=scoreAt(r,c,1)*20; // 挡对方更要紧
-      board[r][c]=0;
-      if(s>bestScore){ bestScore=s; best=[r,c]; }
-    }
-    if(best){ board[best[0]][best[1]]=2; drawStone(best[0],best[1],2);
-      if(five(best[0],best[1],2)){ msgEl.textContent='AI 胜！'; over=true; return; }
-      msgEl.textContent='黑方（你）回合'; }
+  function emptyCells(){ var e=[]; for(var r=0;r<N;r++) for(var c=0;c<N;c++) if(!board[r][c]) e.push([r,c]); return e; }
+  function hasStones(){ for(var r=0;r<N;r++) for(var c=0;c<N;c++) if(board[r][c]) return true; return false; }
+
+  // ---- 棋型评分 ----
+  function lineInfo(r,c,dr,dc,who){
+    var cnt=1, open=0, rr, cc;
+    rr=r+dr; cc=c+dc; while(inb(rr,cc)&&board[rr][cc]===who){ cnt++; rr+=dr; cc+=dc; }
+    if(inb(rr,cc)&&board[rr][cc]===0) open++;
+    rr=r-dr; cc=c-dc; while(inb(rr,cc)&&board[rr][cc]===who){ cnt++; rr-=dr; cc-=dc; }
+    if(inb(rr,cc)&&board[rr][cc]===0) open++;
+    return { cnt:cnt, open:open };
   }
-  function scoreAt(r,c,v){ let sc=0;
-    for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
-      let run=1;
-      for(let k=1;k<6;k++){ const rr=r+dr*k,cc=c+dc*k; if(rr<0||cc<0||rr>=N||cc>=N||board[rr][cc]===0) break; if(board[rr][cc]===v)run++; else break; }
-      for(let k=1;k<6;k++){ const rr=r-dr*k,cc=c-dc*k; if(rr<0||cc<0||rr>=N||cc>=N||board[rr][cc]===0) break; if(board[rr][cc]===v)run++; else break; }
-      sc+=run*run*run;
-    }
-    return sc;
+  function patScore(cnt,open){
+    if(cnt>=5) return 100000000;
+    if(cnt===4){ if(open===2) return 1000000; if(open===1) return 12000; return 0; }
+    if(cnt===3){ if(open===2) return 12000; if(open===1) return 800; return 0; }
+    if(cnt===2){ if(open===2) return 500; if(open===1) return 60; return 0; }
+    if(cnt===1){ if(open===2) return 20; if(open===1) return 5; return 0; }
+    return 0;
   }
-  cv.addEventListener('click',(e)=>{
+  function scoreAt(r,c,who){
+    var s=0; board[r][c]=who;
+    for(var d=0;d<DIRS.length;d++){ var info=lineInfo(r,c,DIRS[d][0],DIRS[d][1],who); s+=patScore(info.cnt,info.open); }
+    board[r][c]=0; return s;
+  }
+  function candidates(){
+    var set={}, list=[];
+    if(!hasStones()) return [[7,7]];
+    for(var r=0;r<N;r++) for(var c=0;c<N;c++){ if(!board[r][c]) continue;
+      for(var dr=-2;dr<=2;dr++) for(var dc=-2;dc<=2;dc++){ var rr=r+dr, cc=c+dc;
+        if(inb(rr,cc)&&!board[rr][cc]){ var key=rr*N+cc; if(!set[key]){ set[key]=1; list.push([rr,cc]); } } }
+    }
+    return list;
+  }
+  function aiChoose(){
+    var list=candidates(); if(!list.length) return null;
+    // 1) 能赢就赢
+    for(var i=0;i<list.length;i++){ if(scoreAt(list[i][0],list[i][1],AI)>=100000000) return list[i]; }
+    // 2) 挡人类必赢
+    for(var j=0;j<list.length;j++){ if(scoreAt(list[j][0],list[j][1],HUMAN)>=100000000) return list[j]; }
+    // 3) 攻防综合
+    var best=null, bestScore=-1;
+    for(var k=0;k<list.length;k++){ var r=list[k][0], c=list[k][1];
+      var atk=scoreAt(r,c,AI), def=scoreAt(r,c,HUMAN);
+      var s=atk + def*0.9;
+      // 靠近中心的微小加成
+      s += (7-Math.abs(r-7)) + (7-Math.abs(c-7));
+      if(s>bestScore){ bestScore=s; best=[r,c]; } }
+    return best;
+  }
+
+  function doUndo(){
+    if(busy||!history.length) return;
+    // 撤两步（若最后是 AI 刚下完则撤 AI+人类；若仅人类则撤一步）
+    var steps = (history.length>=2 && history[history.length-1].v===AI) ? 2 : 1;
+    for(var i=0;i<steps && history.length;i++){ var h=history.pop(); board[h.r][h.c]=0; }
+    over=false; last=history.length?history[history.length-1]:null;
+    msgEl.textContent='\u9ED1\u65B9\uFF08\u4F60\uFF09\u56DE\u5408'; draw();
+  }
+
+  function aiTurn(){
     if(over) return;
-    const rect=cv.getBoundingClientRect(), sc=cv.width/rect.width;
-    const x=(e.clientX-rect.left)*sc, y=(e.clientY-rect.top)*sc;
-    const c=Math.round((x-pad)/cell), r=Math.round((y-pad)/cell);
-    if(r<0||c<0||r>=N||c>=N||board[r][c]) return;
-    board[r][c]=1; drawStone(r,c,1);
-    if(five(r,c,1)){ msgEl.textContent='你赢了！'; over=true; setTimeout(()=>{closeGame();openGame('gomoku');},1200); return; }
-    if(!emptyCells().length){ msgEl.textContent='平局'; over=true; return; }
-    msgEl.textContent='AI 思考中…'; setTimeout(aiMove,150);
+    busy=true; msgEl.textContent='AI \u601D\u8003\u4E2D\u2026';
+    setTimeout(function(){
+      var mv=aiChoose();
+      if(!mv){ busy=false; return; }
+      board[mv[0]][mv[1]]=AI; history.push({r:mv[0],c:mv[1],v:AI}); last={r:mv[0],c:mv[1]}; draw();
+      if(five(mv[0],mv[1],AI)){ msgEl.textContent='AI \u8D62\u4E86\uFF01'; over=true; busy=false; return; }
+      if(!emptyCells().length){ msgEl.textContent='\u5E73\u5C40'; over=true; busy=false; return; }
+      busy=false; msgEl.textContent='\u9ED1\u65B9\uFF08\u4F60\uFF09\u56DE\u5408';
+    }, 30);
+  }
+
+  cv.addEventListener('click',function(e){
+    if(over||busy) return;
+    var rect=cv.getBoundingClientRect(), sc=cv.width/rect.width;
+    var x=(e.clientX-rect.left)*sc, y=(e.clientY-rect.top)*sc;
+    var c=Math.round((x-pad)/cell), r=Math.round((y-pad)/cell);
+    if(!inb(r,c)||board[r][c]) return;
+    board[r][c]=HUMAN; history.push({r:r,c:c,v:HUMAN}); last={r:r,c:c}; draw();
+    if(five(r,c,HUMAN)){ msgEl.textContent='\u4F60\u8D62\u4E86\uFF01'; over=true; return; }
+    if(!emptyCells().length){ msgEl.textContent='\u5E73\u5C40'; over=true; return; }
+    aiTurn();
   });
-  drawAll();
-  return ()=>{ wrap.remove(); };
+
+  draw();
+  return function(){ wrap.remove(); };
 }
 
 /* --- 中国象棋（简化规则对 AI）--- */
