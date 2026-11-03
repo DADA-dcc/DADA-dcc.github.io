@@ -1920,10 +1920,10 @@ function startChess(){
   if(!XQ){ const w=document.createElement('div'); w.className='scorebadge'; w.textContent='\u8C61\u68CB\u5F15\u64CE\u52A0\u8F7D\u5931\u8D25'; gameMount.appendChild(w); return function(){}; }
   const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px';
   gameMount.appendChild(wrap);
-  const info=document.createElement('div'); info.className='scorebadge'; info.textContent='\u7EA2\u5148\uFF08\u4F60\uFF09';
+  const info=document.createElement('div'); info.className='scorebadge'; info.textContent='\u4F60\u8D70';
   const lv=document.createElement('select');
   lv.style.cssText='font-family:inherit;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer';
-  [['2','\u7B80\u5355'],['3','\u666E\u901A'],['4','\u56F0\u96BE']].forEach(function(p){ var o=document.createElement('option'); o.value=p[0]; o.textContent='\u96BE\u5EA6 '+p[1]; lv.appendChild(o); });
+  [['2','\u7B80\u5355'],['3','\u666E\u901A'],['4','\u56F0\u96BE'],['5','\u68CB\u5723']].forEach(function(p){ var o=document.createElement('option'); o.value=p[0]; o.textContent='\u96BE\u5EA6 '+p[1]; lv.appendChild(o); });
   lv.value='3';
   function mkBtn(t,fn){ var b=document.createElement('button'); b.className='btn ghost'; b.textContent=t; b.onclick=fn; return b; }
   const firstBtn=mkBtn('AI\u5148\u624B', function(){ aiFirst=!aiFirst; paintFirst(); restart(); });
@@ -1943,7 +1943,7 @@ function startChess(){
   let selected=null, targets=[], busy=false;
   let aiFirst=false, flipped=false, aiColor='b', playerColor='r';
 
-  // 音效（WebAudio 合成，无外部资源）
+  // 音效
   let actx=null;
   function tone(freq,dur,type,vol){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume();
     var o=actx.createOscillator(), g=actx.createGain(); o.type=type||'triangle'; o.frequency.value=freq; o.connect(g); g.connect(actx.destination);
@@ -1951,6 +1951,45 @@ function startChess(){
   function sndMove(){ tone(540,0.07,'triangle',0.05); }
   function sndCap(){ tone(300,0.12,'square',0.06); }
   function sndCheck(){ tone(780,0.13,'sawtooth',0.05); }
+
+  // ===== Pikafish 引擎（棋圣级，Web Worker）=====
+  function pfEngine(){
+    if(window.__pf) return window.__pf;
+    var s={ ready:false, failed:false, worker:null, queue:[] };
+    try{
+      var base=new URL('./vendor/pikafish/', location.href).href;
+      var w=new Worker(base+'pikafish-worker.js');
+      w.onmessage=function(e){ var d=e.data||{};
+        if(d.type==='ready'){ s.ready=true; }
+        else if(d.type==='bestmove'){ var cb=s.queue.shift(); if(cb) cb(d.move||''); }
+        else if(d.type==='error'){ s.failed=true; } };
+      w.onerror=function(){ s.failed=true; };
+      w.postMessage({type:'init', base:base});
+      s.worker=w;
+    }catch(e){ s.failed=true; }
+    window.__pf=s; return s;
+  }
+  function toPFen(fen){ var p=fen.split(' '); if(p[1]==='r') p[1]='w'; return p.join(' '); }
+  function engineMove(fen, limit, timeoutMs){
+    return new Promise(function(resolve){
+      var s=pfEngine(); if(!s.worker||s.failed){ resolve(null); return; }
+      var done=false, t0=Date.now();
+      (function waitReady(){
+        if(done) return;
+        if(s.ready){
+          var to=setTimeout(function(){ if(!done){ done=true; resolve(null); } }, timeoutMs);
+          s.queue.push(function(mv){ if(done) return; done=true; clearTimeout(to); resolve(mv||null); });
+          try{ s.worker.postMessage({type:'go', fen:fen, limit:limit}); }catch(e){ done=true; resolve(null); }
+          return;
+        }
+        if(Date.now()-t0>5000 || s.failed){ done=true; resolve(null); return; }
+        setTimeout(waitReady, 60);
+      })();
+    });
+  }
+  function isEngineLevel(){ return lv.value==='4' || lv.value==='5'; }
+  function limitForLevel(){ return lv.value==='5' ? 'movetime 3000' : 'depth 14'; }
+  function localDepth(){ return lv.value==='2' ? 2 : 3; }
 
   const cell= Math.min(52, Math.floor((Math.min(innerWidth,520)-70)/8));
   const pad=Math.round(cell*0.62);
@@ -1999,16 +2038,34 @@ function startChess(){
   }
 
   function maybeAI(){ if(xq.game_over()) return; if(xq.turn()===aiColor && !busy) aiTurn(); }
+  function applyAIMove(mv){
+    if(!mv || mv.length<4) return false;
+    var from=mv.slice(0,2), to=mv.slice(2,4);
+    if(!xq.get(from)) return false;
+    var cap=!!xq.get(to); var r=xq.move({from:from,to:to});
+    if(!r) return false;
+    if(cap) sndCap(); else sndMove();
+    return true;
+  }
+  function finishAITurn(){ busy=false; selected=null; targets=[]; render(); var st=status(); if(st==='on' && xq.in_check()) sndCheck(); }
   function aiTurn(){
     if(xq.game_over()) return;
     busy=true; render(); info.textContent='AI \u601D\u8003\u4E2D\u2026';
-    setTimeout(function(){
-      var depth=parseInt(lv.value,10)||3;
-      var m=pickMove(depth);
-      if(m){ var cap=!!xq.get(m.to); xq.move({from:m.from,to:m.to}); if(cap) sndCap(); else sndMove(); }
-      busy=false; selected=null; targets=[]; render();
-      var st=status(); if(st==='on' && xq.in_check()) sndCheck();
-    }, 40);
+    var eng = isEngineLevel();
+    if(eng){
+      var fen=toPFen(xq.fen()); var lim=limitForLevel(); var to=(lv.value==='5')?9000:7000;
+      engineMove(fen, lim, to).then(function(mv){
+        var ok=applyAIMove(mv);
+        if(!ok){ var m=pickMove(localDepth()); if(m && applyAIMove(m.from+m.to)){} }
+        finishAITurn();
+      });
+    } else {
+      setTimeout(function(){
+        var m=pickMove(localDepth());
+        if(m) applyAIMove(m.from+m.to);
+        finishAITurn();
+      }, 40);
+    }
   }
 
   function doMove(from,to){
@@ -2041,7 +2098,7 @@ function startChess(){
     selected=null; targets=[]; render(); status();
   }
 
-  // ===== AI: alpha-beta（红方视角评估，按 aiColor 取最大/最小）=====
+  // ===== 本地 alpha-beta（简单/普通档 + 引擎失败回退）=====
   var VAL={ r:900, c:450, n:400, b:200, a:200, p:100, k:100000 };
   function evaluate(){ var b=xq.board(), s=0;
     for(var r=0;r<10;r++) for(var c=0;c<9;c++){ var pc=b[r][c]; if(!pc) continue; var v=VAL[pc.type]||0, extra=0;
@@ -2073,7 +2130,7 @@ function startChess(){
   function restart(){
     xq=new XQ(); selected=null; targets=[]; busy=false;
     aiColor = aiFirst ? 'r' : 'b'; playerColor = aiFirst ? 'b' : 'r';
-    render(); status(); maybeAI();
+    render(); status(); if(isEngineLevel()) pfEngine(); maybeAI();
   }
 
   paintFirst();
