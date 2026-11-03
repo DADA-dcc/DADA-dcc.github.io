@@ -9,7 +9,11 @@ var modReady = false;
 var waiters = [];
 
 var Module = {
-  locateFile: function (f) { return ENGINE_BASE + f; },
+  locateFile: function (f) {
+    // 该构建的实际 wasm 名为 pikafish-single.wasm，Emscripten 默认请求 pikafish.wasm
+    if (f === 'pikafish.wasm') f = 'pikafish-single.wasm';
+    return ENGINE_BASE + f;
+  },
   print: function () {},
   printErr: function () {},
   read_stdout: function (line) { onLine(line); }
