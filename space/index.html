@@ -1958,7 +1958,7 @@ function startChess(){
     var s={ ready:false, failed:false, worker:null, queue:[] };
     try{
       var base=new URL('./vendor/pikafish/', location.href).href;
-      var w=new Worker(base+'pikafish-worker.js');
+      var w=new Worker(base+'pikafish-worker.js?v=3');
       w.onmessage=function(e){ var d=e.data||{};
         if(d.type==='ready'){ s.ready=true; }
         else if(d.type==='bestmove'){ var cb=s.queue.shift(); if(cb) cb(d.move||''); }
