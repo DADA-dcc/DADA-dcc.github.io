@@ -1853,16 +1853,24 @@ function startGomoku(){
   }
   function aiChoose(){
     var list=candidates(); if(!list.length) return null;
-    // 1) 能赢就赢
-    for(var i=0;i<list.length;i++){ if(scoreAt(list[i][0],list[i][1],AI)>=100000000) return list[i]; }
-    // 2) 挡人类必赢
-    for(var j=0;j<list.length;j++){ if(scoreAt(list[j][0],list[j][1],HUMAN)>=100000000) return list[j]; }
-    // 3) 攻防综合
+    var i,j,k;
+    // 1) 自己能成五 -> 直接赢
+    for(i=0;i<list.length;i++){ if(scoreAt(list[i][0],list[i][1],AI)>=100000000) return list[i]; }
+    // 2) 挡人类成五
+    for(i=0;i<list.length;i++){ if(scoreAt(list[i][0],list[i][1],HUMAN)>=100000000) return list[i]; }
+    // 3) 自己可做四/活四 -> 先手强攻
+    var f4=null, f4s=-1;
+    for(i=0;i<list.length;i++){ var a1=scoreAt(list[i][0],list[i][1],AI); if(a1>=1000000 && a1>f4s){ f4s=a1; f4=list[i]; } }
+    if(f4) return f4;
+    // 4) 挡人类四/活四（不挡下一手就输）
+    var b4=null, b4s=-1;
+    for(i=0;i<list.length;i++){ var d1=scoreAt(list[i][0],list[i][1],HUMAN); if(d1>=1000000 && d1>b4s){ b4s=d1; b4=list[i]; } }
+    if(b4) return b4;
+    // 5) 攻防综合（防守略优先，防活三）
     var best=null, bestScore=-1;
-    for(var k=0;k<list.length;k++){ var r=list[k][0], c=list[k][1];
+    for(k=0;k<list.length;k++){ var r=list[k][0], c=list[k][1];
       var atk=scoreAt(r,c,AI), def=scoreAt(r,c,HUMAN);
-      var s=atk + def*0.9;
-      // 靠近中心的微小加成
+      var s=atk + def*1.25;
       s += (7-Math.abs(r-7)) + (7-Math.abs(c-7));
       if(s>bestScore){ bestScore=s; best=[r,c]; } }
     return best;
