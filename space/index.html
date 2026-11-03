@@ -1395,6 +1395,8 @@ canvas.game {
     <div class="game-bar" id="gameBar"></div>
   </div>
 </div>
+<script>window.exports = window.exports || {};</script>
+<script src="./vendor/xiangqi.js"></script>
 <script>
 /* ============ 基础：星空 / 时钟 / 导航 ============ */
 (function starfield(){
@@ -1840,99 +1842,168 @@ function startGomoku(){
 
 /* --- 中国象棋（简化规则对 AI）--- */
 function startChess(){
+  const XQ = (window.exports && window.exports.Xiangqi) || window.Xiangqi;
+  if(!XQ){
+    const w=document.createElement('div'); w.className='scorebadge'; w.textContent='象棋引擎加载失败'; gameMount.appendChild(w); return ()=>{};
+  }
   const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px';
   gameMount.appendChild(wrap);
-  const bar=document.createElement('div'); bar.className='scorebadge'; bar.textContent='红先（你）· 简化规则';
-  gameBar.innerHTML=''; gameBar.appendChild(bar);
-  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=()=>{ closeGame(); openGame('chess'); };
-  gameBar.appendChild(restart);
-  const cell=56, pad=30, cols=9, rows=10;
-  const cv=document.createElement('canvas'); cv.width=pad*2+(cols-1)*cell; cv.height=pad*2+(rows-1)*cell; cv.style.touchAction='none';
+  const info=document.createElement('div'); info.className='scorebadge'; info.textContent='红先（你）';
+  const lv=document.createElement('select');
+  lv.style.cssText='font-family:inherit;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer';
+  [['2','简单'],['3','普通'],['4','困难']].forEach(function(p){ var o=document.createElement('option'); o.value=p[0]; o.textContent='难度 '+p[1]; lv.appendChild(o); });
+  lv.value='3';
+  gameBar.innerHTML=''; gameBar.appendChild(info); gameBar.appendChild(lv);
+  const undoBtn=document.createElement('button'); undoBtn.className='btn ghost'; undoBtn.textContent='悔棋'; undoBtn.onclick=function(){ doUndo(); };
+  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=function(){ closeGame(); openGame('chess'); };
+  gameBar.appendChild(undoBtn); gameBar.appendChild(restart);
+
+  const FILES='abcdefghi';
+  function sqStr(r,c){ return FILES[c] + (9 - r); }
+  function rcOf(s){ return { r: 9 - parseInt(s[1],10), c: FILES.indexOf(s[0]) }; }
+
+  const CH={ k:'\u5E25', a:'\u4ED5', b:'\u76F8', n:'\u99AC', r:'\u8ECA', c:'\u70AE', p:'\u5175',
+             K:'\u5C07', A:'\u58EB', B:'\u8C61', N:'\u99AC', R:'\u8ECA', C:'\u7832', P:'\u5352' };
+  const pieceChar=function(pc){ var ch=pc.color==='r'?CH[pc.type]:CH[pc.type.toUpperCase()]; return ch||'?'; };
+
+  let xq = new XQ();
+  let selected=null, targets=[], busy=false;
+
+  const cell= Math.min(52, Math.floor((Math.min(innerWidth,520)-70)/8));
+  const pad=Math.round(cell*0.62);
+  const cv=document.createElement('canvas');
+  cv.width=pad*2+8*cell; cv.height=pad*2+9*cell; cv.style.touchAction='none'; cv.style.maxWidth='100%';
   wrap.appendChild(cv); const ctx=cv.getContext('2d');
-  // 棋子: r=紅 k=帥 a=仕 e=相 n=馬 r2=車 c=炮 p=兵 ; 黑方(R=將 A=士 E=象 N=馬 R2=車 C=炮 P=卒)
-  const init=[];
-  const red=['r2','n','e','a','k','a','e','n','r2'];
-  for(let c=0;c<cols;c++) init.push({cl:'r',id:c,p:red[c],r:9,col:c});
-  for(let c=1;c<cols;c+=2) init.push({cl:'r',id:300+c,p:'p',r:6,col:c});
-  init.push({cl:'r',id:99,p:'c',r:7,col:1});
-  const blk=['R2','N','E','A','K','A','E','N','R2'];
-  for(let c=0;c<cols;c++) init.push({cl:'b',id:1000+c,p:blk[c],r:0,col:c});
-  for(let c=1;c<cols;c+=2) init.push({cl:'b',id:2000+c,p:'P',r:3,col:c});
-  init.push({cl:'b',id:199,p:'C',r:2,col:7});
-  let board=Array.from({length:rows},()=>Array(cols).fill(null));
-  let selected=null, turn='r', over=false;
-  function idx(r,c){ return board[r]&&board[r][c]; }
-  function inGrid(r,c){ return r>=0&&c>=0&&r<rows&&c<cols; }
-  function legal(from,to){ const [r,c]=from,[tr,tc]=to; const pc=board[r][c]; if(!pc) return false; const tp=board[tr][tc]; if(tp&&tp.cl===pc.cl) return false; const p=pc.p.toLowerCase();
-    const blocks=()=>{ let n=0; if(r===tr){ const m=Math.max(c,tc)-Math.min(c,tc)-1; const step=c<tc?1:-1; for(let x=c+step;x!==tc;x+=step) if(board[r][x])n++; return n; } if(c===tc){ const step=r<tr?1:-1; for(let x=r+step;x!==tr;x+=step) if(board[x][c])n++; return n; } return -1; };
-    if(p==='k'||p==='K'){ // 将帥 只走一格(簡化,含斜角小範圍) 
-      const dr=Math.abs(tr-r), dc=Math.abs(tc-c); if(dr+dc===1) return true; if(dr===1&&dc===1&&(Math.abs(tc-4)<=1)) return true; return false; }
-    if(p==='a'||p==='A'){ const dr=Math.abs(tr-r),dc=Math.abs(tc-c); return dr===1&&dc===1&&tc>=3&&tc<=5&&((pc.cl==='r'&&tr>=7)||(pc.cl==='b'&&tr<=2)); }
-    if(p==='e'||p==='E'){ const dr=Math.abs(tr-r),dc=Math.abs(tc-c); if(dr!==2||dc!==2) return false; const mr=(r+tr)/2,mc=(c+tc)/2; return !idx(mr,mc); }
-    if(p==='n'||p==='N'){ const dr=Math.abs(tr-r),dc=Math.abs(tc-c); if(!((dr===2&&dc===1)||(dr===1&&dc===2))) return false; const br= r+(tr>r?1:-1), bc=c+(tc>c?1:-1); if(dr===2){ if(idx(r+(tr>r?1:-1),c)) return false; }else if(idx(r,c+(tc>c?1:-1))) return false; return true; }
-    if(p==='r2'||p==='R2'){ const n=blocks(); return n===0; }
-    if(p==='c'||p==='C'){ const n=blocks(); if(n===0) return !tp; if(n===1) return !!tp; return false; }
-    if(p==='p'||p==='P'){ if(pc.cl==='r'){ if(r>tr&&tc===c&&!tp) return true; if(r===tr&&(tc===c-1||tc===c+1)&&tp) return true; } else { if(r<tr&&tc===c&&!tp) return true; if(r===tr&&(tc===c-1||tc===c+1)&&tp) return true; } return false; }
-    return false;
-  }
-  function draw(){
-    ctx.fillStyle='#e8c980'; ctx.fillRect(0,0,cv.width,cv.height);
-    // 网格
+  function px(c){ return pad+c*cell; } function py(r){ return pad+r*cell; }
+
+  function render(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.fillStyle='#e9cf9b'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.strokeStyle='#7a4d1f'; ctx.lineWidth=1;
-    for(let c=0;c<cols;c++){ ctx.beginPath(); ctx.moveTo(px(c),py(0)); ctx.lineTo(px(c),py(rows-1)); ctx.stroke(); }
-    for(let r=0;r<rows;r++){ ctx.beginPath(); ctx.moveTo(px(0),py(r)); ctx.lineTo(px(cols-1),py(r)); ctx.stroke(); }
+    // 竖线：中间隔开河界（第4行与第5行之间不画），边线画全
+    for(var c=0;c<9;c++){
+      if(c===0||c===8){ ctx.beginPath(); ctx.moveTo(px(c),py(0)); ctx.lineTo(px(c),py(9)); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.moveTo(px(c),py(0)); ctx.lineTo(px(c),py(4)); ctx.stroke(); ctx.beginPath(); ctx.moveTo(px(c),py(5)); ctx.lineTo(px(c),py(9)); ctx.stroke(); }
+    }
+    // 横线
+    for(var r=0;r<10;r++){ ctx.beginPath(); ctx.moveTo(px(0),py(r)); ctx.lineTo(px(8),py(r)); ctx.stroke(); }
     // 九宫斜线
     ctx.beginPath(); ctx.moveTo(px(3),py(0)); ctx.lineTo(px(5),py(2)); ctx.moveTo(px(5),py(0)); ctx.lineTo(px(3),py(2)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(px(3),py(rows-1)); ctx.lineTo(px(5),py(rows-3)); ctx.moveTo(px(5),py(rows-1)); ctx.lineTo(px(3),py(rows-3)); ctx.stroke();
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const pc=board[r][c]; if(!pc) continue;
-      const x=px(c),y=py(r);
-      ctx.beginPath(); ctx.arc(x,y,20,0,7); ctx.fillStyle=selected&&selected.r===r&&selected.c===c?'#ffe08a':'#f6e7c8'; ctx.fill(); ctx.strokeStyle='#7a4d1f'; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.fillStyle=pc.cl==='r'?'#b23a2a':'#2a2a2a'; ctx.font='bold 18px "KaiTi","Microsoft YaHei",serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      const ch={k:'帥',a:'仕',e:'相',n:'馬',r2:'車',c:'炮',p:'兵',K:'將',A:'士',E:'象',N:'馬',R2:'車',C:'砲',P:'卒'}[pc.p]||'';
-      ctx.fillText(ch,x,y);
+    ctx.beginPath(); ctx.moveTo(px(3),py(7)); ctx.lineTo(px(5),py(9)); ctx.moveTo(px(5),py(7)); ctx.lineTo(px(3),py(9)); ctx.stroke();
+    // 河界文字
+    ctx.fillStyle='#8a6231'; ctx.font=Math.round(cell*0.5)+'px "KaiTi",serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('\u695A\u6CB3', px(2), (py(4)+py(5))/2); ctx.fillText('\u6F22\u754C', px(6), (py(4)+py(5))/2);
+    // 棋子
+    var b=xq.board();
+    for(var rr=0;rr<10;rr++) for(var cc=0;cc<9;cc++){
+      var pc=b[rr][cc]; if(!pc) continue;
+      var x=px(cc), y=py(rr);
+      ctx.beginPath(); ctx.arc(x,y,cell*0.42,0,Math.PI*2);
+      ctx.fillStyle=(selected && selected===sqStr(rr,cc)) ? '#fff3b0' : '#f7e9c9'; ctx.fill();
+      ctx.strokeStyle= pc.color==='r' ? '#b23a2a' : '#2a2a2a'; ctx.lineWidth=1.6; ctx.stroke();
+      ctx.fillStyle= pc.color==='r' ? '#b23a2a' : '#2a2a2a';
+      ctx.font='bold '+Math.round(cell*0.52)+'px "KaiTi","Microsoft YaHei",serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(pieceChar(pc), x, y+1);
     }
-    if(over){ ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle='#fff'; ctx.font='bold 30px sans-serif'; ctx.textAlign='center'; ctx.fillText('对局结束',cv.width/2,cv.height/2); }
-  }
-  function px(c){ return pad+c*cell; } function py(r){ return pad+r*cell; }
-  function aiMove(){
-    // 简单 AI: 取一个能吃的或随机合法走
-    const moves=[];
-    for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){ const pc=board[r][c]; if(!pc||pc.cl!=='b') continue;
-      for(let tr=0;tr<rows;tr++)for(let tc=0;tc<cols;tc++){ if(legal([r,c],[tr,tc])){ const eat=board[tr][tc]?10:1; moves.push({r,c,tr,tc,eat}); } } }
-    let mv=null;
-    // 优先吃分高的
-    const score={k:100,a:20,e:20,n:40,r2:45,c:30,p:10};
-    let best=-1;
-    for(const m of moves){ let s=m.eat*(1+(score[board[m.tr][m.tc]?.p]||1)); if(board[m.tr][m.tc]&&board[m.tr][m.tc].p==='k') s=1e6; if(s>best){best=s;mv=m;} }
-    if(!mv&&moves.length) mv=moves[Math.floor(Math.random()*moves.length)];
-    if(!mv){ over=true; bar.textContent='红胜！'; draw(); return; }
-    const cpiece=board[mv.r][mv.c]; board[mv.tr][mv.tc]=cpiece; board[mv.r][mv.c]=null;
-    if(cpiece.p==='K'&&mv.tr===9){ } // 黑將進我方九宮視為勝利(簡化)
-    if(cpiece.p==='k'&&board.some(row=>row.some(p=>p&&p===cpiece))) {}
-    turn='r'; draw();
-  }
-  cv.addEventListener('click',(e)=>{
-    if(over) return;
-    const rect=cv.getBoundingClientRect(), sx=cv.width/rect.width;
-    const x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sx;
-    const c=Math.round((x-pad)/cell), r=Math.round((y-pad)/cell);
-    if(c<0||c>cols-1||r<0||r>rows-1) return;
-    if(selected){
-      const p=board[selected.r][selected.c];
-      if(legal([selected.r,selected.c],[r,c])){ const tp=board[r][c]; board[r][c]=p; board[selected.r][selected.c]=null; selected=null; turn='b'; draw();
-        if(tp&&tp.p==='k'){ over=true; bar.textContent='黑胜！'; setTimeout(()=>{closeGame();openGame('chess');},1500); return; } setTimeout(aiMove,200); return; }
-      if(r===selected.r&&c===selected.c){ selected=null; draw(); return; }
-      if(board[r][c]){ selected={r,c}; draw(); return; }
-      selected=null; draw(); return;
+    // 可落点提示
+    for(var i=0;i<targets.length;i++){ var t=rcOf(targets[i]); var tx=px(t.c), ty=py(t.r);
+      if(b[t.r][t.c]){ ctx.beginPath(); ctx.arc(tx,ty,cell*0.46,0,Math.PI*2); ctx.strokeStyle='rgba(40,180,120,.9)'; ctx.lineWidth=3; ctx.stroke(); }
+      else { ctx.beginPath(); ctx.arc(tx,ty,cell*0.16,0,Math.PI*2); ctx.fillStyle='rgba(40,180,120,.75)'; ctx.fill(); }
     }
-    if(board[r][c]&&board[r][c].cl==='r'){ selected={r,c}; draw(); }
+  }
+
+  function status(){
+    if(xq.in_checkmate()){ var loser=xq.turn(); info.textContent=(loser==='r'?'你被将死了\u00B7黑胜':'将死黑方\u00B7红胜'); return 'over'; }
+    if(xq.in_stalemate()){ info.textContent='困毙\u00B7和棋'; return 'over'; }
+    if(xq.in_draw()){ info.textContent='和棋'; return 'over'; }
+    var chk=xq.in_check()?' \u00B7 将军!':'';
+    info.textContent=(xq.turn()==='r'?'红方（你）走':'黑方（AI）走')+chk;
+    return 'on';
+  }
+
+  function scheduleAI(){
+    if(xq.game_over()) return;
+    if(xq.turn()!=='b') return;
+    busy=true; render(); info.textContent='AI 思考中\u2026';
+    setTimeout(function(){
+      var depth=parseInt(lv.value,10)||3;
+      var m=pickMove(depth);
+      if(m){ xq.move({from:m.from,to:m.to}); }
+      busy=false; selected=null; targets=[]; render(); status();
+    }, 40);
+  }
+
+  function doMove(from,to){
+    var mv=xq.move({from:from,to:to});
+    if(!mv) return false;
+    selected=null; targets=[]; render();
+    var st=status();
+    if(st==='on') scheduleAI();
+    return true;
+  }
+
+  cv.addEventListener('click',function(e){
+    if(busy) return; if(xq.game_over()) return;
+    var rect=cv.getBoundingClientRect(), sx=cv.width/rect.width;
+    var x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sx;
+    var c=Math.round((x-pad)/cell), r=Math.round((y-pad)/cell);
+    if(c<0||c>8||r<0||r>9) return;
+    var s=sqStr(r,c);
+    if(selected && targets.indexOf(s)>=0){ doMove(selected,s); return; }
+    var pc=xq.get(s);
+    if(pc && pc.color==='r' && xq.turn()==='r'){
+      selected=s;
+      targets=xq.moves({square:s, verbose:true}).map(function(m){return m.to;});
+      render(); return;
+    }
+    selected=null; targets=[]; render();
   });
-  function setup(){ board=Array.from({length:rows},()=>Array(cols).fill(null));
-      for(const pc of init){ board[pc.r][pc.col]=pc; }
-    selected=null; over=false; draw();
+
+  function doUndo(){
+    if(busy) return;
+    var h=xq.history(); if(!h.length) return;
+    xq.undo();
+    if(xq.turn()!=='r' && xq.history().length) xq.undo();
+    selected=null; targets=[]; render(); status();
   }
-  setup();
-  return ()=>{ wrap.remove(); };
+
+  // ===== AI：alpha-beta =====
+  var VAL={ r:900, c:450, n:400, b:200, a:200, p:100, k:100000 };
+  function evaluate(){
+    var b=xq.board(), s=0;
+    for(var r=0;r<10;r++) for(var c=0;c<9;c++){ var pc=b[r][c]; if(!pc) continue; var v=VAL[pc.type]||0; var extra=0;
+      if(pc.type==='p'){ if(pc.color==='r' && r<=4) extra=60; if(pc.color==='b' && r>=5) extra=60; }
+      s += (pc.color==='r'?1:-1)*(v+extra); }
+    return s;
+  }
+  function search(depth, alpha, beta){
+    if(depth===0){ return xq.in_checkmate() ? (xq.turn()==='r'?-999999:999999) : evaluate(); }
+    if(xq.game_over()){ if(xq.in_checkmate()) return xq.turn()==='r'?-999999:999999; return 0; }
+    var moves=xq.moves({verbose:true});
+    moves.sort(function(a,b){ return (b.captured?VAL[b.captured]||0:0)-(a.captured?VAL[a.captured]||0:0); });
+    var maximizing = xq.turn()==='r', best = maximizing ? -Infinity : Infinity;
+    for(var i=0;i<moves.length;i++){ var m=moves[i]; xq.move({from:m.from,to:m.to});
+      var val=search(depth-1, alpha, beta); xq.undo();
+      if(maximizing){ if(val>best) best=val; if(best>alpha) alpha=best; }
+      else { if(val<best) best=val; if(best<beta) beta=best; }
+      if(beta<=alpha) break; }
+    return best;
+  }
+  function pickMove(depth){
+    var moves=xq.moves({verbose:true});
+    if(!moves.length) return null;
+    moves.sort(function(a,b){ return (b.captured?VAL[b.captured]||0:0)-(a.captured?VAL[a.captured]||0:0); });
+    var bestVal=-Infinity, best=[];
+    for(var i=0;i<moves.length;i++){ var m=moves[i]; xq.move({from:m.from,to:m.to});
+      var val=search(depth-1, -Infinity, Infinity); xq.undo();
+      var jit=(Math.random()-0.5)*24;
+      if(val+jit>bestVal){ bestVal=val+jit; best=[m]; }
+    }
+    return best[0]||moves[0];
+  }
+
+  render(); status();
+  return function(){ wrap.remove(); };
 }
 
 /* --- 大肥鱼桌宠（模仿 DSH dsh-pet：蓝发女仆·帧动画·拖拽·气泡·右键菜单）--- */
