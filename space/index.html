@@ -1917,166 +1917,167 @@ function startGomoku(){
 /* --- 中国象棋（简化规则对 AI）--- */
 function startChess(){
   const XQ = (window.exports && window.exports.Xiangqi) || window.Xiangqi;
-  if(!XQ){
-    const w=document.createElement('div'); w.className='scorebadge'; w.textContent='象棋引擎加载失败'; gameMount.appendChild(w); return ()=>{};
-  }
+  if(!XQ){ const w=document.createElement('div'); w.className='scorebadge'; w.textContent='\u8C61\u68CB\u5F15\u64CE\u52A0\u8F7D\u5931\u8D25'; gameMount.appendChild(w); return function(){}; }
   const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px';
   gameMount.appendChild(wrap);
-  const info=document.createElement('div'); info.className='scorebadge'; info.textContent='红先（你）';
+  const info=document.createElement('div'); info.className='scorebadge'; info.textContent='\u7EA2\u5148\uFF08\u4F60\uFF09';
   const lv=document.createElement('select');
   lv.style.cssText='font-family:inherit;background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer';
-  [['2','简单'],['3','普通'],['4','困难']].forEach(function(p){ var o=document.createElement('option'); o.value=p[0]; o.textContent='难度 '+p[1]; lv.appendChild(o); });
+  [['2','\u7B80\u5355'],['3','\u666E\u901A'],['4','\u56F0\u96BE']].forEach(function(p){ var o=document.createElement('option'); o.value=p[0]; o.textContent='\u96BE\u5EA6 '+p[1]; lv.appendChild(o); });
   lv.value='3';
-  gameBar.innerHTML=''; gameBar.appendChild(info); gameBar.appendChild(lv);
-  const undoBtn=document.createElement('button'); undoBtn.className='btn ghost'; undoBtn.textContent='悔棋'; undoBtn.onclick=function(){ doUndo(); };
-  const restart=document.createElement('button'); restart.className='btn ghost'; restart.textContent='重开'; restart.onclick=function(){ closeGame(); openGame('chess'); };
-  gameBar.appendChild(undoBtn); gameBar.appendChild(restart);
+  function mkBtn(t,fn){ var b=document.createElement('button'); b.className='btn ghost'; b.textContent=t; b.onclick=fn; return b; }
+  const firstBtn=mkBtn('AI\u5148\u624B', function(){ aiFirst=!aiFirst; paintFirst(); restart(); });
+  const flipBtn=mkBtn('\u7FFB\u8F6C', function(){ flipped=!flipped; render(); });
+  const undoBtn=mkBtn('\u6094\u68CB', function(){ doUndo(); });
+  const restartBtn=mkBtn('\u91CD\u5F00', function(){ restart(); });
+  gameBar.innerHTML=''; gameBar.appendChild(info); gameBar.appendChild(lv); gameBar.appendChild(firstBtn); gameBar.appendChild(flipBtn); gameBar.appendChild(undoBtn); gameBar.appendChild(restartBtn);
+  function paintFirst(){ firstBtn.style.opacity=aiFirst?'1':'0.55'; firstBtn.style.borderColor=aiFirst?'var(--cyan)':''; }
 
   const FILES='abcdefghi';
   function sqStr(r,c){ return FILES[c] + (9 - r); }
   function rcOf(s){ return { r: 9 - parseInt(s[1],10), c: FILES.indexOf(s[0]) }; }
-
-  const CH={ k:'\u5E25', a:'\u4ED5', b:'\u76F8', n:'\u99AC', r:'\u8ECA', c:'\u70AE', p:'\u5175',
-             K:'\u5C07', A:'\u58EB', B:'\u8C61', N:'\u99AC', R:'\u8ECA', C:'\u7832', P:'\u5352' };
-  const pieceChar=function(pc){ var ch=pc.color==='r'?CH[pc.type]:CH[pc.type.toUpperCase()]; return ch||'?'; };
+  const CH={ k:'\u5E25', a:'\u4ED5', b:'\u76F8', n:'\u99AC', r:'\u8ECA', c:'\u70AE', p:'\u5175', K:'\u5C07', A:'\u58EB', B:'\u8C61', N:'\u99AC', R:'\u8ECA', C:'\u7832', P:'\u5352' };
+  function pieceChar(pc){ return pc.color==='r' ? CH[pc.type] : CH[pc.type.toUpperCase()] || '?'; }
 
   let xq = new XQ();
   let selected=null, targets=[], busy=false;
+  let aiFirst=false, flipped=false, aiColor='b', playerColor='r';
+
+  // 音效（WebAudio 合成，无外部资源）
+  let actx=null;
+  function tone(freq,dur,type,vol){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); if(actx.state==='suspended') actx.resume();
+    var o=actx.createOscillator(), g=actx.createGain(); o.type=type||'triangle'; o.frequency.value=freq; o.connect(g); g.connect(actx.destination);
+    var t=actx.currentTime, v=vol||0.05; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.0001,t+(dur||0.09)); o.start(t); o.stop(t+(dur||0.09)); }catch(e){} }
+  function sndMove(){ tone(540,0.07,'triangle',0.05); }
+  function sndCap(){ tone(300,0.12,'square',0.06); }
+  function sndCheck(){ tone(780,0.13,'sawtooth',0.05); }
 
   const cell= Math.min(52, Math.floor((Math.min(innerWidth,520)-70)/8));
   const pad=Math.round(cell*0.62);
-  const cv=document.createElement('canvas');
-  cv.width=pad*2+8*cell; cv.height=pad*2+9*cell; cv.style.touchAction='none'; cv.style.maxWidth='100%';
+  const cv=document.createElement('canvas'); cv.width=pad*2+8*cell; cv.height=pad*2+9*cell; cv.style.touchAction='none'; cv.style.maxWidth='100%';
   wrap.appendChild(cv); const ctx=cv.getContext('2d');
   function px(c){ return pad+c*cell; } function py(r){ return pad+r*cell; }
+  function toScreen(r,c){ return flipped ? { r: 9-r, c: 8-c } : { r:r, c:c }; }
+  function fromScreen(sr,sc){ return flipped ? { r: 9-sr, c: 8-sc } : { r:sr, c:sc }; }
 
   function render(){
     ctx.clearRect(0,0,cv.width,cv.height);
     ctx.fillStyle='#e9cf9b'; ctx.fillRect(0,0,cv.width,cv.height);
     ctx.strokeStyle='#7a4d1f'; ctx.lineWidth=1;
-    // 竖线：中间隔开河界（第4行与第5行之间不画），边线画全
     for(var c=0;c<9;c++){
       if(c===0||c===8){ ctx.beginPath(); ctx.moveTo(px(c),py(0)); ctx.lineTo(px(c),py(9)); ctx.stroke(); }
       else { ctx.beginPath(); ctx.moveTo(px(c),py(0)); ctx.lineTo(px(c),py(4)); ctx.stroke(); ctx.beginPath(); ctx.moveTo(px(c),py(5)); ctx.lineTo(px(c),py(9)); ctx.stroke(); }
     }
-    // 横线
     for(var r=0;r<10;r++){ ctx.beginPath(); ctx.moveTo(px(0),py(r)); ctx.lineTo(px(8),py(r)); ctx.stroke(); }
-    // 九宫斜线
     ctx.beginPath(); ctx.moveTo(px(3),py(0)); ctx.lineTo(px(5),py(2)); ctx.moveTo(px(5),py(0)); ctx.lineTo(px(3),py(2)); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(px(3),py(7)); ctx.lineTo(px(5),py(9)); ctx.moveTo(px(5),py(7)); ctx.lineTo(px(3),py(9)); ctx.stroke();
-    // 河界文字
     ctx.fillStyle='#8a6231'; ctx.font=Math.round(cell*0.5)+'px "KaiTi",serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('\u695A\u6CB3', px(2), (py(4)+py(5))/2); ctx.fillText('\u6F22\u754C', px(6), (py(4)+py(5))/2);
-    // 棋子
     var b=xq.board();
-    for(var rr=0;rr<10;rr++) for(var cc=0;cc<9;cc++){
-      var pc=b[rr][cc]; if(!pc) continue;
-      var x=px(cc), y=py(rr);
+    for(var rr=0;rr<10;rr++) for(var cc=0;cc<9;cc++){ var pc=b[rr][cc]; if(!pc) continue;
+      var sp=toScreen(rr,cc), x=px(sp.c), y=py(sp.r);
       ctx.beginPath(); ctx.arc(x,y,cell*0.42,0,Math.PI*2);
-      ctx.fillStyle=(selected && selected===sqStr(rr,cc)) ? '#fff3b0' : '#f7e9c9'; ctx.fill();
-      ctx.strokeStyle= pc.color==='r' ? '#b23a2a' : '#2a2a2a'; ctx.lineWidth=1.6; ctx.stroke();
-      ctx.fillStyle= pc.color==='r' ? '#b23a2a' : '#2a2a2a';
+      ctx.fillStyle=(selected===sqStr(rr,cc))?'#fff3b0':'#f7e9c9'; ctx.fill();
+      ctx.strokeStyle= pc.color==='r'?'#b23a2a':'#2a2a2a'; ctx.lineWidth=1.6; ctx.stroke();
+      ctx.fillStyle= pc.color==='r'?'#b23a2a':'#2a2a2a';
       ctx.font='bold '+Math.round(cell*0.52)+'px "KaiTi","Microsoft YaHei",serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(pieceChar(pc), x, y+1);
     }
-    // 可落点提示
-    for(var i=0;i<targets.length;i++){ var t=rcOf(targets[i]); var tx=px(t.c), ty=py(t.r);
+    for(var i=0;i<targets.length;i++){ var t=rcOf(targets[i]), sp2=toScreen(t.r,t.c), tx=px(sp2.c), ty=py(sp2.r);
       if(b[t.r][t.c]){ ctx.beginPath(); ctx.arc(tx,ty,cell*0.46,0,Math.PI*2); ctx.strokeStyle='rgba(40,180,120,.9)'; ctx.lineWidth=3; ctx.stroke(); }
       else { ctx.beginPath(); ctx.arc(tx,ty,cell*0.16,0,Math.PI*2); ctx.fillStyle='rgba(40,180,120,.75)'; ctx.fill(); }
     }
   }
 
   function status(){
-    if(xq.in_checkmate()){ var loser=xq.turn(); info.textContent=(loser==='r'?'你被将死了\u00B7黑胜':'将死黑方\u00B7红胜'); return 'over'; }
-    if(xq.in_stalemate()){ info.textContent='困毙\u00B7和棋'; return 'over'; }
-    if(xq.in_draw()){ info.textContent='和棋'; return 'over'; }
-    var chk=xq.in_check()?' \u00B7 将军!':'';
-    info.textContent=(xq.turn()==='r'?'红方（你）走':'黑方（AI）走')+chk;
+    if(xq.in_checkmate()){ info.textContent=(xq.turn()===playerColor?'\u4F60\u88AB\u5C06\u6B7B\u4E86\u00B7AI\u80DC':'\u5C06\u6B7B\u5BF9\u624B\u00B7\u4F60\u80DC'); return 'over'; }
+    if(xq.in_stalemate()){ info.textContent='\u56F0\u6BD9\u00B7\u548C\u68CB'; return 'over'; }
+    if(xq.in_draw()){ info.textContent='\u548C\u68CB'; return 'over'; }
+    var chk=xq.in_check()?' \u00B7 \u5C06\u519B!':'';
+    info.textContent=(xq.turn()===playerColor?'\u4F60\u8D70':'AI \u8D70')+chk;
     return 'on';
   }
 
-  function scheduleAI(){
+  function maybeAI(){ if(xq.game_over()) return; if(xq.turn()===aiColor && !busy) aiTurn(); }
+  function aiTurn(){
     if(xq.game_over()) return;
-    if(xq.turn()!=='b') return;
-    busy=true; render(); info.textContent='AI 思考中\u2026';
+    busy=true; render(); info.textContent='AI \u601D\u8003\u4E2D\u2026';
     setTimeout(function(){
       var depth=parseInt(lv.value,10)||3;
       var m=pickMove(depth);
-      if(m){ xq.move({from:m.from,to:m.to}); }
-      busy=false; selected=null; targets=[]; render(); status();
+      if(m){ var cap=!!xq.get(m.to); xq.move({from:m.from,to:m.to}); if(cap) sndCap(); else sndMove(); }
+      busy=false; selected=null; targets=[]; render();
+      var st=status(); if(st==='on' && xq.in_check()) sndCheck();
     }, 40);
   }
 
   function doMove(from,to){
-    var mv=xq.move({from:from,to:to});
-    if(!mv) return false;
+    var cap=!!xq.get(to);
+    var mv=xq.move({from:from,to:to}); if(!mv) return;
+    if(cap) sndCap(); else sndMove();
     selected=null; targets=[]; render();
-    var st=status();
-    if(st==='on') scheduleAI();
-    return true;
+    var st=status(); if(st==='on'){ if(xq.in_check()) sndCheck(); maybeAI(); }
   }
 
   cv.addEventListener('click',function(e){
-    if(busy) return; if(xq.game_over()) return;
+    if(busy || xq.game_over()) return;
     var rect=cv.getBoundingClientRect(), sx=cv.width/rect.width;
     var x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sx;
-    var c=Math.round((x-pad)/cell), r=Math.round((y-pad)/cell);
-    if(c<0||c>8||r<0||r>9) return;
-    var s=sqStr(r,c);
+    var sc=Math.round((x-pad)/cell), sr=Math.round((y-pad)/cell);
+    if(sc<0||sc>8||sr<0||sr>9) return;
+    var rc=fromScreen(sr,sc), s=sqStr(rc.r,rc.c);
     if(selected && targets.indexOf(s)>=0){ doMove(selected,s); return; }
     var pc=xq.get(s);
-    if(pc && pc.color==='r' && xq.turn()==='r'){
-      selected=s;
-      targets=xq.moves({square:s, verbose:true}).map(function(m){return m.to;});
-      render(); return;
+    if(pc && pc.color===playerColor && xq.turn()===playerColor){
+      selected=s; targets=xq.moves({square:s, verbose:true}).map(function(m){return m.to;}); render(); return;
     }
     selected=null; targets=[]; render();
   });
 
   function doUndo(){
-    if(busy) return;
-    var h=xq.history(); if(!h.length) return;
+    if(busy || !xq.history().length) return;
     xq.undo();
-    if(xq.turn()!=='r' && xq.history().length) xq.undo();
+    if(xq.turn()!==playerColor && xq.history().length) xq.undo();
     selected=null; targets=[]; render(); status();
   }
 
-  // ===== AI：alpha-beta =====
+  // ===== AI: alpha-beta（红方视角评估，按 aiColor 取最大/最小）=====
   var VAL={ r:900, c:450, n:400, b:200, a:200, p:100, k:100000 };
-  function evaluate(){
-    var b=xq.board(), s=0;
-    for(var r=0;r<10;r++) for(var c=0;c<9;c++){ var pc=b[r][c]; if(!pc) continue; var v=VAL[pc.type]||0; var extra=0;
-      if(pc.type==='p'){ if(pc.color==='r' && r<=4) extra=60; if(pc.color==='b' && r>=5) extra=60; }
-      s += (pc.color==='r'?1:-1)*(v+extra); }
-    return s;
-  }
+  function evaluate(){ var b=xq.board(), s=0;
+    for(var r=0;r<10;r++) for(var c=0;c<9;c++){ var pc=b[r][c]; if(!pc) continue; var v=VAL[pc.type]||0, extra=0;
+      if(pc.type==='p'){ if(pc.color==='r'&&r<=4) extra=60; if(pc.color==='b'&&r>=5) extra=60; }
+      s+=(pc.color==='r'?1:-1)*(v+extra); }
+    return s; }
   function search(depth, alpha, beta){
-    if(depth===0){ return xq.in_checkmate() ? (xq.turn()==='r'?-999999:999999) : evaluate(); }
+    if(depth===0) return xq.in_checkmate() ? (xq.turn()==='r'?-999999:999999) : evaluate();
     if(xq.game_over()){ if(xq.in_checkmate()) return xq.turn()==='r'?-999999:999999; return 0; }
     var moves=xq.moves({verbose:true});
     moves.sort(function(a,b){ return (b.captured?VAL[b.captured]||0:0)-(a.captured?VAL[a.captured]||0:0); });
-    var maximizing = xq.turn()==='r', best = maximizing ? -Infinity : Infinity;
-    for(var i=0;i<moves.length;i++){ var m=moves[i]; xq.move({from:m.from,to:m.to});
-      var val=search(depth-1, alpha, beta); xq.undo();
-      if(maximizing){ if(val>best) best=val; if(best>alpha) alpha=best; }
-      else { if(val<best) best=val; if(best<beta) beta=best; }
+    var maximizing=(xq.turn()==='r'), best=maximizing?-Infinity:Infinity;
+    for(var i=0;i<moves.length;i++){ var m=moves[i]; xq.move({from:m.from,to:m.to}); var val=search(depth-1,alpha,beta); xq.undo();
+      if(maximizing){ if(val>best)best=val; if(best>alpha)alpha=best; } else { if(val<best)best=val; if(best<beta)beta=best; }
       if(beta<=alpha) break; }
     return best;
   }
   function pickMove(depth){
-    var moves=xq.moves({verbose:true});
-    if(!moves.length) return null;
+    var moves=xq.moves({verbose:true}); if(!moves.length) return null;
     moves.sort(function(a,b){ return (b.captured?VAL[b.captured]||0:0)-(a.captured?VAL[a.captured]||0:0); });
-    var bestVal=-Infinity, best=[];
-    for(var i=0;i<moves.length;i++){ var m=moves[i]; xq.move({from:m.from,to:m.to});
-      var val=search(depth-1, -Infinity, Infinity); xq.undo();
-      var jit=(Math.random()-0.5)*24;
-      if(val+jit>bestVal){ bestVal=val+jit; best=[m]; }
-    }
-    return best[0]||moves[0];
+    var aiIsRed=(aiColor==='r');
+    var bestVal= aiIsRed ? -Infinity : Infinity, best=null;
+    for(var i=0;i<moves.length;i++){ var m=moves[i]; xq.move({from:m.from,to:m.to}); var val=search(depth-1,-Infinity,Infinity); xq.undo();
+      var jit=(Math.random()-0.5)*20; var v=val+jit;
+      if(aiIsRed ? (v>bestVal) : (v<bestVal)){ bestVal=v; best=m; } }
+    return best||moves[0];
   }
 
-  render(); status();
+  function restart(){
+    xq=new XQ(); selected=null; targets=[]; busy=false;
+    aiColor = aiFirst ? 'r' : 'b'; playerColor = aiFirst ? 'b' : 'r';
+    render(); status(); maybeAI();
+  }
+
+  paintFirst();
+  restart();
   return function(){ wrap.remove(); };
 }
 
