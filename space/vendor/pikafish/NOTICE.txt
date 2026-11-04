@@ -1,0 +1,17 @@
+Pikafish (Chinese chess engine) — WebAssembly build
+====================================================
+
+Files in this directory:
+  pikafish-single.js   (Emscripten gluen code)
+  pikafish-single.wasm (engine)
+  pikafish.data        (embedded NNUE network, 4103914 bytes)
+  pikafish-worker.js   (UCI worker wrapper by this site)
+
+Engine: Pikafish, official web build "dev-20240226-98b20a33"
+Mirror used: https://github.com/ningh-o/engine-builds (release tag pikafish-20240226)
+Upstream project: https://github.com/official-pikafish/Pikafish
+License: GPL-3.0 (engine code); NNUE network under Pikafish NNUE-License.
+
+GPL compliance: these are unmodified official binaries. The corresponding
+source is available from the upstream project above and the mirror repository
+above, which documents the exact pinned commit and build recipe.
