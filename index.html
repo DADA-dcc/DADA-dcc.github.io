@@ -19,8 +19,11 @@
      · Cursor  —— 全系统只有发丝级高度，无 elevation 分层
    本页三条自定规矩：
      1. 一支青作为动作色；紫只做环境光；金只做数字。
-     2. 深度靠层级，不靠模糊。整页只有模态遮罩允许 blur。
+     2. 深度靠层级；模糊只给「液态玻璃」——封面玻璃层 + 模态遮罩，共 2 处，多一处都不行。
      3. 半径、间距、字阶各一套阶梯，不许临时数值。
+   两套动态系统（都吃 prefers-reduced-motion）：
+      · 流动粒子 —— 星野之上叠一层向上流动的微粒 + 稀疏抛体弧线（Canvas #flow）
+      · 液态玻璃封面 —— 漂移网格渐变 + metaball 液态团 + 磨砂玻璃 + 掠过高光（.cover）
    ══════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -88,6 +91,28 @@
   --t-fast: 120ms;
   --t: 160ms;
   --t-slow: 260ms;
+
+  /* ── 液态玻璃：只给封面与模态，别处不许用 ── */
+  --glass-blur: 6px;
+  --glass-sat: 172%;
+  /* 玻璃的填充必须极淡：下面是会动的液态球，白色一重就把球洗白了 */
+  --glass-fill: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.085) 0%,
+    rgba(255, 255, 255, 0.026) 34%,
+    rgba(255, 255, 255, 0.01) 66%,
+    rgba(255, 255, 255, 0.055) 100%
+  );
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055);
+  --sheen: linear-gradient(
+    105deg,
+    transparent 16%,
+    rgba(255, 255, 255, 0.17) 41%,
+    rgba(255, 255, 255, 0.05) 52%,
+    transparent 70%
+  );
 }
 
 /* ═══════════════ 基础 ═══════════════ */
@@ -113,6 +138,15 @@ body {
 }
 
 #stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+/* 流动粒子：星野之上再叠一层，同层但后画，只加光不挡路 */
+#flow {
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -461,12 +495,143 @@ h2.sec::after {
 
 /* ═══════════════ 驾驶舱 ═══════════════ */
 
-.hero {
-  padding: var(--sp-8) var(--sp-6);
+/* ═══════════════ 驾驶舱 · 液态玻璃封面 ═══════════════ */
+
+.cover {
+  position: relative;
+  isolation: isolate;
+  padding: var(--sp-4);
   overflow: hidden;
+  background: var(--canvas);
+  border-color: rgba(120, 160, 255, 0.18);
+}
+
+/* 液态层：漂移网格渐变 + metaball 液团 + 高光，全在 canvas 里，CSS 只管叠放 */
+.cover-liquid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 玻璃「表面」的水珠层：是玻璃面板的子元素，所以不受面板自己的 backdrop blur 影响
+   （backdrop-filter 只糊它背后的东西，不糊它的子节点），棱线因此是脆的。
+   一层软折射在玻璃后面 + 一层脆水珠在玻璃表面 = 液态玻璃。 */
+.cover-glass > .cover-drops {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* 压暗文字区，保证玻璃上的字永远够对比：左侧一道斜向暗幕 + 底部收边 */
+.cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
   background:
-    radial-gradient(118% 92% at 10% -6%, rgba(73, 230, 255, 0.058), transparent 62%),
-    var(--s1);
+    linear-gradient(
+      100deg,
+      rgba(4, 6, 13, 0.62) 0%,
+      rgba(4, 6, 13, 0.3) 42%,
+      rgba(4, 6, 13, 0.06) 70%,
+      transparent 100%
+    ),
+    radial-gradient(
+      130% 120% at 50% 118%,
+      transparent 46%,
+      rgba(4, 6, 13, 0.5) 100%
+    );
+}
+
+/* 玻璃面板：全站唯一一处（除模态遮罩）允许 blur 的地方。
+   边框不用纯色，用 padding-box / border-box 双层背景做出「彩色玻璃棱边」：
+   左上冷白 → 中段青 → 右下紫，这一圈色边就是液态玻璃的签名。 */
+.cover-glass {
+  position: relative;
+  z-index: 2;
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background:
+    var(--glass-fill) padding-box,
+    linear-gradient(
+        152deg,
+        rgba(255, 255, 255, 0.72) 0%,
+        rgba(73, 230, 255, 0.4) 18%,
+        rgba(255, 255, 255, 0.09) 44%,
+        rgba(160, 107, 255, 0.36) 74%,
+        rgba(255, 255, 255, 0.58) 100%
+      )
+      border-box;
+  box-shadow: var(--glass-edge), var(--lift-1);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  overflow: hidden;
+}
+
+/* 掠过高光：玻璃上那道斜着扫过的亮带 */
+.cover-glass::before {
+  content: "";
+  position: absolute;
+  inset: -60% -40%;
+  z-index: 1;
+  background: var(--sheen);
+  pointer-events: none;
+  animation: sheen 9.5s var(--ease) infinite;
+  will-change: transform, opacity;
+}
+
+/* 玻璃里的内容永远压在高光之上，字不能被亮带盖住 */
+.cover-glass > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes sheen {
+  0% {
+    transform: translate3d(-58%, 0, 0);
+    opacity: 0;
+  }
+  9% {
+    opacity: 0.85;
+  }
+  52% {
+    transform: translate3d(52%, 0, 0);
+    opacity: 0.5;
+  }
+  60%,
+  100% {
+    transform: translate3d(52%, 0, 0);
+    opacity: 0;
+  }
+}
+
+/* 玻璃顶边的镜面亮线 */
+.cover-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  z-index: 3;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.52) 22%,
+    rgba(255, 255, 255, 0.16) 68%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .hero .display {
@@ -1157,8 +1322,27 @@ canvas.game {
   .quick {
     grid-template-columns: repeat(2, 1fr);
   }
-  .hero {
-    padding: var(--sp-6) var(--sp-4);
+  .cover {
+    padding: var(--sp-3);
+  }
+  /* 窄屏字会铺满整块，左侧暗幕要更狠，否则亮团直接压在正文上 */
+  .cover::after {
+    background:
+      linear-gradient(
+        118deg,
+        rgba(4, 6, 13, 0.72) 0%,
+        rgba(4, 6, 13, 0.5) 58%,
+        rgba(4, 6, 13, 0.18) 100%
+      ),
+      radial-gradient(
+        140% 130% at 50% 120%,
+        transparent 40%,
+        rgba(4, 6, 13, 0.56) 100%
+      );
+  }
+  .cover-glass {
+    padding: var(--sp-4) var(--sp-4) var(--sp-4);
+    border-radius: var(--r-md);
   }
   nav {
     border-radius: var(--r-lg);
@@ -1182,12 +1366,23 @@ canvas.game {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+  /* 玻璃高光直接停在中间那一格，别闪 */
+  .cover-glass::before {
+    animation: none !important;
+    opacity: 0.28;
+    transform: translate3d(0, 0, 0);
+  }
+  /* 液态层退化为一张静态渐变（由 canvas 首帧绘制），这里只把动效压掉 */
+  #flow {
+    display: none;
+  }
 }
 </style>
 </head>
 <body>
-<canvas id="stars"></canvas>
+<canvas id="stars" aria-hidden="true"></canvas>
 <div class="glow"></div>
+<canvas id="flow" aria-hidden="true"></canvas>
 
 <div class="wrap">
   <header class="top">
@@ -1210,16 +1405,20 @@ canvas.game {
 
   <!-- 驾驶舱 -->
   <section class="view active" id="view-dash">
-    <div class="card hero">
-      <p class="eyebrow">XS-06 · LOW ORBIT DECK</p>
-      <h2 class="display">欢迎登舰，指挥官 👨‍🚀</h2>
-      <p class="lead">这里是你的私人空间站：放松玩几把小游戏、归档技术资料、或让 AI 助手搭把手。</p>
-      <div class="stat">
-        <span class="chip">已存资料 <b id="statNotes">0</b> 条</span>
-        <span class="chip">小游戏 <b>4</b> 款</span>
-        <span class="chip">在线时长 <b id="statUptime">0</b> 分</span>
-        <span class="chip">今日访问 <b id="statToday">0</b> 次</span>
-        <span class="chip">总访问 <b id="statTotal">0</b> 次</span>
+    <div class="card hero cover">
+      <canvas class="cover-liquid" id="coverLiquid" aria-hidden="true"></canvas>
+      <div class="cover-glass">
+        <canvas class="cover-drops" id="coverDrops" aria-hidden="true"></canvas>
+        <p class="eyebrow">XS-06 · LOW ORBIT DECK</p>
+        <h2 class="display">欢迎登舰，指挥官 👨‍🚀</h2>
+        <p class="lead">这里是你的私人空间站：放松玩几把小游戏、归档技术资料、或让 AI 助手搭把手。</p>
+        <div class="stat">
+          <span class="chip">已存资料 <b id="statNotes">0</b> 条</span>
+          <span class="chip">小游戏 <b>4</b> 款</span>
+          <span class="chip">在线时长 <b id="statUptime">0</b> 分</span>
+          <span class="chip">今日访问 <b id="statToday">0</b> 次</span>
+          <span class="chip">总访问 <b id="statTotal">0</b> 次</span>
+        </div>
       </div>
     </div>
     <div class="quick" id="quick">
@@ -1392,6 +1591,724 @@ canvas.game {
       s.y+=s.z*.18; if(s.y>h){ s.y=-2; s.x=Math.random()*w; } }
     requestAnimationFrame(tick); }
   tick();
+})();
+
+/* ============ 流动粒子 ============
+   // Motion Prompt #015 Particles · MIT License (c) 2026 Shohei Ohtaki
+   // https://showheyohtaki.github.io/motion-prompt/#015
+   发射器物理原样搬来：vx ±190 px/s、vy 250–400 px/s 向上、重力 470 px/s²、
+   生命 ≤1.5 s、淡入 0.06 s、最后 30% 淡出、缩放 1.15→0.7、圆形/方形/三角、自转 ±4.5 rad/s。
+   只做两处改写：发射口从单点改成整条下边缘（环境微粒不该是喷泉），尺寸整体缩到 1.6–4.6 px。
+   再加一档「抛体」粒子：带重力，走弧线穿过画面，用来把静止的星野搅活。
+   配色守纪律：青为主、冷蓝次之、紫只做少量点缀。 */
+(function flowfield(){
+  const cv=document.getElementById('flow'); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const GRAV=470, TAU=Math.PI*2;
+  let w=0,h=0,dpr=1,raf=0,last=0,motes=[],acc=0,meteors=[],shot=0.30;
+
+  const PAL=[
+    [73,230,255],   /* 青，主色 */
+    [73,230,255],
+    [150,200,255],  /* 冷蓝 */
+    [160,107,255],  /* 紫 */
+    [110,255,200],  /* 薄荷 */
+    [255,120,180],  /* 玫红，点缀 */
+    [255,205,130]   /* 暖橙，点缀 */
+  ];
+  const SHAPES=['c','c','c','c','s','t'];
+
+  function resize(){
+    dpr=Math.min(1.5, devicePixelRatio||1);
+    w=innerWidth; h=innerHeight;
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    motes=[]; acc=0; meteors=[];
+    const cap=Math.min(58, Math.max(18, Math.floor(w/24)));
+    for(let i=0;i<cap;i++) motes.push(spawn(true));
+  }
+
+  function spawn(seed){
+    const arc = Math.random()<0.18;                 /* 抛体档 */
+    const circle = Math.random()<0.72;
+    const size = circle ? 1.3+Math.random()*2.1 : 1.8+Math.random()*2.4;
+    const col = PAL[Math.floor(Math.random()*PAL.length)];
+    return {
+      x: Math.random()*w,
+      y: seed ? Math.random()*h : h + 6 + Math.random()*10,
+      vx: (Math.random()-0.5)*2*190,
+      vy: arc ? -(250+Math.random()*150) : -(90+Math.random()*130),
+      g: arc ? GRAV : 0,
+      r: size,
+      life: 0,
+      max: arc ? 1.5 : 2.6+Math.random()*2.2,
+      a: (arc ? 0.3+Math.random()*0.2 : 0.14+Math.random()*0.24) * (circle?1:0.72),
+      rot: Math.random()*TAU,
+      spin: (Math.random()-0.5)*2*4.5,
+      shape: circle ? 'c' : SHAPES[Math.floor(Math.random()*SHAPES.length)],
+      col
+    };
+  }
+
+  function alphaOf(p){
+    const t=p.life/p.max, fin=0.06/p.max;
+    if(t<fin) return t/fin;
+    if(t>0.7) return (1-t)/0.3;
+    return 1;
+  }
+
+  function draw(p){
+    const t=p.life/p.max, s=1.15-0.45*t, r=p.r*s, a=p.a*alphaOf(p);
+    if(a<=0||r<=0) return;
+    const c=p.col;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    if(p.shape==='c'){
+      const g=ctx.createRadialGradient(0,0,0,0,0,r*2.6);
+      g.addColorStop(0,'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')');
+      g.addColorStop(0.42,'rgba('+c[0]+','+c[1]+','+c[2]+','+a*0.42+')');
+      g.addColorStop(1,'rgba('+c[0]+','+c[1]+','+c[2]+',0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(0,0,r*2.6,0,TAU); ctx.fill();
+    } else {
+      ctx.rotate(p.rot);
+      ctx.fillStyle='rgba('+c[0]+','+c[1]+','+c[2]+','+a+')';
+      if(p.shape==='s'){ ctx.fillRect(-r,-r,r*2,r*2); }
+      else {
+        ctx.beginPath(); ctx.moveTo(0,-r*1.15);
+        ctx.lineTo(r,r*0.72); ctx.lineTo(-r,r*0.72);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  /* ---------- 流星：七彩拖尾 ----------
+     一颗流星自己就是一段彩虹：拖尾的渐变沿三个相邻色相走，所以尾巴是渐变的，
+     不是单色的一条线。头部亮核用径向白光，外层再垫一片柔光，在 lighter 下自然发光。
+
+     出场位置的关键：**头部必须一出生就在视口里**。之前从 x=-70 起飞，头在屏幕外，
+     前 0.4 s 整颗都看不见 —— 命中率全靠运气。现在改成头直接落在画面内、尾巴朝后
+     拖在画面里，所以每一颗都是完整可读的一条光。
+     头部落在内容层后面也没关系：玻璃面板的 backdrop-filter 会把穿过去的流星糊成
+     一道柔光，正好是「流星从舷窗外掠过」的观感。 */
+  const HUE=[[255,64,128],[255,150,44],[255,226,64],[74,255,150],[0,208,255],[86,120,255],[178,72,255]];
+
+  function shoot(){
+    const k=Math.floor(Math.random()*HUE.length);
+    const sp=270+Math.random()*230;                 /* 270–500 px/s：慢慢划过，不是闪一下 */
+    const left=Math.random()<0.72;                  /* 七成左→右，三成镜像 */
+    const ang=left ? 0.10+Math.random()*0.24 : Math.PI-0.10-Math.random()*0.24;
+    const run=430+Math.random()*330;                /* 头这一趟走多远 */
+    const len=230+Math.random()*230;                /* 尾巴长度（拖在头后面） */
+    /* 关键：头从进到出全程留在画面内 —— 起点按走位反推，并夹在安全边距里。
+       以前是「从画外飞进来」，结果大半条命都在画外，静态截图几乎永远抓不到。 */
+    const dx=Math.cos(ang)*run, dy=Math.sin(ang)*run;
+    const x0=Math.min(Math.max(left ? w*(0.02+Math.random()*0.26) : w*(0.74+Math.random()*0.24),
+                               w*0.02), w*0.96-dx);
+    /* 两条「看得见」的跑道：玻璃舷窗带（被玻璃折射成柔光）＋ 下方空天区。
+       刻意避开中段 0.40–0.70 —— 那里全是实心卡片，画了也被挡住。 */
+    const band = Math.random()<0.35 ? [0.24,0.40] : [0.72,0.92];
+    const y0=Math.min(Math.max(h*(band[0]+Math.random()*(band[1]-band[0])), h*0.10),
+                      h*0.96-Math.abs(dy));
+    meteors.push({
+      x:x0, y:y0, vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp,
+      len, w:2.3+Math.random()*1.6,
+      c0:HUE[k], c1:HUE[(k+1)%HUE.length], c2:HUE[(k+2)%HUE.length], c3:HUE[(k+3)%HUE.length],
+      life:0, max:run/sp
+    });
+  }
+
+  function meteorStep(dt){
+    shot-=dt;
+    if(shot<=0){ shoot(); if(Math.random()<0.26) shoot(); shot=0.9+Math.random()*1.9; }
+    for(let i=meteors.length-1;i>=0;i--){
+      const m=meteors[i];
+      m.x+=m.vx*dt; m.y+=m.vy*dt; m.life+=dt;
+      if(m.life>m.max || m.x<-m.len-80 || m.x>w+80 || m.y<-80 || m.y>h+80){ meteors.splice(i,1); continue; }
+      /* 淡入 0.12 s，最后 30% 淡出 */
+      const fade=Math.min(1,m.life/0.12)*Math.min(1,(m.max-m.life)/(m.max*0.30));
+      const a=fade*0.96;
+      const c0=m.c0.join(','), c1=m.c1.join(','), c2=m.c2.join(','), c3=m.c3.join(',');
+      ctx.save();
+      ctx.translate(m.x,m.y);
+      ctx.rotate(Math.atan2(m.vy,m.vx));
+      /* 外层柔光：只有这一层用 lighter，它负责「发光」，不负责「颜色」 */
+      ctx.globalCompositeOperation='lighter';
+      ctx.globalAlpha=0.18*a;
+      ctx.fillStyle='rgb('+c1+')';
+      ctx.beginPath(); ctx.moveTo(0,-m.w*4.6); ctx.lineTo(-m.len*0.94,0); ctx.lineTo(0,m.w*4.6); ctx.closePath(); ctx.fill();
+      /* 主体：必须 source-over 才保得住饱和色相。四个色相沿尾巴依次递进，
+         一条尾巴自己就是一段彩虹；若叠在 lighter 下，四色相加又会被洗成奶油白。 */
+      ctx.globalCompositeOperation='source-over';
+      ctx.globalAlpha=1;
+      const g=ctx.createLinearGradient(0,0,-m.len,0);
+      g.addColorStop(0,   'rgba('+c0+','+(a*0.98)+')');
+      g.addColorStop(0.24,'rgba('+c1+','+(a*0.86)+')');
+      g.addColorStop(0.50,'rgba('+c2+','+(a*0.64)+')');
+      g.addColorStop(0.76,'rgba('+c3+','+(a*0.34)+')');
+      g.addColorStop(1,   'rgba('+c3+',0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.moveTo(0,-m.w*1.15); ctx.lineTo(-m.len,0); ctx.lineTo(0,m.w*1.15); ctx.closePath(); ctx.fill();
+      /* 头部：白核压得很小，主色占大面积，读出来才是「彩色流星」而不是白点 */
+      const hg=ctx.createRadialGradient(0,0,0,0,0,m.w*5.6);
+      hg.addColorStop(0,   'rgba(255,255,255,'+(a*0.90)+')');
+      hg.addColorStop(0.16,'rgba('+c0+','+(a*0.86)+')');
+      hg.addColorStop(0.46,'rgba('+c0+','+(a*0.34)+')');
+      hg.addColorStop(1,   'rgba('+c0+',0)');
+      ctx.fillStyle=hg;
+      ctx.beginPath(); ctx.arc(0,0,m.w*5.6,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function step(dt){
+    ctx.clearRect(0,0,w,h);
+    ctx.globalCompositeOperation='lighter';
+    for(let i=0;i<motes.length;i++){
+      const p=motes[i];
+      p.life+=dt;
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=p.g*dt; p.rot+=p.spin*dt;
+      if(p.life>=p.max || p.y<-40 || p.x<-60 || p.x>w+60){ motes[i]=spawn(false); continue; }
+      draw(p);
+    }
+    meteorStep(dt);
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  function tick(now){
+    const dt=last ? Math.min(0.05,(now-last)/1000) : 0.016;
+    last=now;
+    if(!document.hidden && w>0) step(dt);
+    raf=requestAnimationFrame(tick);
+  }
+
+  resize(); addEventListener('resize',resize);
+  if(reduce){ /* 静态一帧，然后停手 */ step(0); }
+  else { raf=requestAnimationFrame(tick); }
+})();
+
+/* ============ 渐变液态玻璃封面 ============
+   // Motion Prompt #095 Animated gradient · MIT License (c) 2026 Shohei Ohtaki
+   // https://showheyohtaki.github.io/motion-prompt/#095
+   // Motion Prompt #013 Liquid motion   · MIT License (c) 2026 Shohei Ohtaki
+   // https://showheyohtaki.github.io/motion-prompt/#013
+   #095 的四个径向色块沿椭圆轨道漂移，原周期 4.8 s；封面是背景，慢到 24 s。
+   #013 的液态团是「领队 + 7 个拖尾」沿同一条参数曲线、每 0.065 s 递进一格；
+   原版靠 blur+alpha 阈值做 goo，这里改用 lighter 叠加：暗底上的同色光斑叠加本身就是液体融并，
+   而且不需要离屏画布与 ctx.filter，帧率稳。
+   白椭圆高光留着——玻璃的折射感全靠它。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+/* ============ 液态玻璃封面 · 折射层 ============
+   画在玻璃面板「后面」（.cover-liquid，z-index 0）：漂移色块 + 球体的体积光。
+   这一层会被 .cover-glass 的 backdrop-filter 糊掉，所以只负责「软」的部分；
+   脆的棱、水珠、粒子全部交给玻璃表面的 #coverDrops。 */
+(function coverLiquid(){
+  const host=document.querySelector('.cover');
+  const cv=document.getElementById('coverLiquid');
+  if(!host||!cv) return;
+  const ctx=cv.getContext('2d');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TAU=Math.PI*2, CYC_BLOB=24, CYC_GOO=9.5;
+  let w=0,h=0,dpr=1,raf=0,vis=true;
+
+  /* 玻璃面板在封面里的位置：球的几何全部按玻璃面板算，
+     球体才会永远完整地待在玻璃里，不被面板边切掉。 */
+  let gx=0,gy=0,gw=0,gh=0;
+
+  /* Motion Prompt #095 · Animated gradient · MIT License (c) 2026 Shohei Ohtaki
+     https://showheyohtaki.github.io/motion-prompt/
+     四团径向色斑，原始周期 4.8s；这里放慢到 24s 当环境光，且只压右半 —— 左侧是文字区，必须保持暗。 */
+  const BLOBS=[
+    {cx:.94,cy:.10,ax:.06,ay:.07,rx:.40,ry:.42,sp:1.00,ph:0.0,c:[255,40,110], a:.20},
+    {cx:.88,cy:.30,ax:.07,ay:.08,rx:.32,ry:.36,sp:1.22,ph:1.3,c:[255,120,30], a:.20},
+    {cx:.72,cy:.16,ax:.06,ay:.06,rx:.28,ry:.30,sp:0.86,ph:2.6,c:[255,225,60], a:.16},
+    {cx:.60,cy:.52,ax:.08,ay:.09,rx:.34,ry:.34,sp:1.08,ph:3.9,c:[40,255,170], a:.16},
+    {cx:.80,cy:.70,ax:.07,ay:.08,rx:.38,ry:.36,sp:0.94,ph:5.2,c:[0,200,255],  a:.22},
+    {cx:.97,cy:.88,ax:.06,ay:.07,rx:.32,ry:.34,sp:1.34,ph:0.7,c:[40,90,255],  a:.22},
+    {cx:.66,cy:.92,ax:.07,ay:.06,rx:.36,ry:.30,sp:0.78,ph:4.5,c:[160,60,255], a:.22}
+  ];
+
+  function measure(){
+    const r=host.getBoundingClientRect();
+    if(r.width<2||r.height<2) return false;
+    dpr=Math.min(2, devicePixelRatio||1);
+    w=Math.round(r.width); h=Math.round(r.height);
+    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){
+      cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    const g=document.querySelector('.cover-glass');
+    if(g){
+      const gr=g.getBoundingClientRect();
+      gx=gr.left-r.left; gy=gr.top-r.top; gw=gr.width; gh=gr.height;
+    } else { gx=0; gy=0; gw=w; gh=h; }
+    return true;
+  }
+
+  function radial(x,y,r,c,a){
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,   'rgba('+c[0]+','+c[1]+','+c[2]+','+a+')');
+    g.addColorStop(0.34,'rgba('+c[0]+','+c[1]+','+c[2]+','+(a*0.62)+')');
+    g.addColorStop(0.68,'rgba('+c[0]+','+c[1]+','+c[2]+','+(a*0.2)+')');
+    g.addColorStop(1,   'rgba('+c[0]+','+c[1]+','+c[2]+',0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.fill();
+  }
+
+  /* 球轨道：与 #coverDrops 用同一套公式（同一个 CYC_GOO、同一个绝对时间），两层才严丝合缝 */
+  function orbs(t){
+    const baseR=Math.max(22,Math.min(gh*0.33,gw*0.155));
+    const clX=function(x,r){ return Math.min(gw-r*1.06,Math.max(r*1.06,x)); };
+    const clY=function(y,r){ return Math.min(gh-r*1.12,Math.max(r*1.02,y)); };
+    /* 窄屏：面板只有 340px 宽，大球没地方活 —— 缩成右上角一颗玻璃弹珠，
+       和 chip 抢位置的问题直接消失。 */
+    const nar=gw<560;
+    const A={r:nar?baseR*0.66:baseR};
+    A.x=gx+clX(gw*((nar?0.92:0.70)+(nar?0.05:0.15)*Math.sin(t/CYC_GOO*TAU*1.05+0.3)),A.r);
+    A.y=gy+clY(gh*((nar?0.14:0.50)+(nar?0.06:0.24)*Math.cos(t/CYC_GOO*TAU*0.88)),A.r);
+    const B={r:baseR*0.44};
+    B.x=gx+clX(gw*(0.80+0.08*Math.sin(t/CYC_GOO*TAU*0.72+2.4)),B.r);
+    B.y=gy+clY(gh*(0.78+0.18*Math.cos(t/CYC_GOO*TAU*1.13+1.1)),B.r);
+    const C={r:baseR*0.32};
+    C.x=gx+clX(gw*(0.55+0.12*Math.sin(t/CYC_GOO*TAU*1.31+4.1)),C.r);
+    C.y=gy+clY(gh*(0.26+0.14*Math.cos(t/CYC_GOO*TAU*0.67+2.7)),C.r);
+    return {A:A,B:B,C:C};
+  }
+
+  function frame(t){
+    if(!measure()) return;
+
+    /* 底：深空渐变，保证玻璃后面永远有东西可透 */
+    const base=ctx.createLinearGradient(0,0,w,h);
+    base.addColorStop(0,'#05070f');
+    base.addColorStop(0.55,'#070b18');
+    base.addColorStop(1,'#04060d');
+    ctx.fillStyle=base; ctx.fillRect(0,0,w,h);
+
+    /* 彩虹膜：一条饱和光谱用 source-over 直接铺上去。
+       用 lighter 叠只会越叠越白（上一版就是这样糊成奶油的），
+       source-over 才有真正的色相，玻璃的「薄膜干涉」也才有读法。 */
+    const film=ctx.createLinearGradient(w*0.08,h*0.96,w*0.99,h*0.04);
+    /* 每一档都用纯色相：中间调的绿+黄只要饱和度不够就会混成橄榄泥，
+       纯色相的绿和纯色相的黄叠出来才是亮柠檬。 */
+    film.addColorStop(0.00,'rgba(120,0,255,0.52)');
+    film.addColorStop(0.13,'rgba(40,60,255,0.52)');
+    film.addColorStop(0.26,'rgba(0,200,255,0.50)');
+    film.addColorStop(0.38,'rgba(0,255,150,0.46)');
+    film.addColorStop(0.50,'rgba(220,255,0,0.38)');
+    film.addColorStop(0.62,'rgba(255,180,0,0.42)');
+    film.addColorStop(0.74,'rgba(255,80,60,0.46)');
+    film.addColorStop(0.86,'rgba(255,40,140,0.50)');
+    film.addColorStop(1.00,'rgba(190,40,255,0.52)');
+    ctx.fillStyle=film; ctx.fillRect(0,0,w,h);
+
+    /* 第二层薄膜，反向斜穿、半透，让色相交叉而不是排成一条 */
+    ctx.save();
+    ctx.globalAlpha=0.22;
+    const film2=ctx.createLinearGradient(w*0.92,h*0.98,w*0.12,h*0.06);
+    film2.addColorStop(0.00,'rgba(255,40,120,0.6)');
+    film2.addColorStop(0.25,'rgba(255,200,0,0.5)');
+    film2.addColorStop(0.50,'rgba(0,255,180,0.45)');
+    film2.addColorStop(0.75,'rgba(0,140,255,0.5)');
+    film2.addColorStop(1.00,'rgba(140,60,255,0.6)');
+    ctx.fillStyle=film2; ctx.fillRect(0,0,w,h);
+    ctx.restore();
+
+    ctx.globalCompositeOperation='lighter';
+    /* 静态锚点：漂移色块会随周期忽明忽暗，垫一层不动的光，封面任何时刻都不塌 */
+    radial(w*0.86,h*0.62,Math.max(w,h)*0.62,[0,190,255],0.16);
+    radial(w*0.99,h*0.14,Math.max(w,h)*0.46,[150,70,255],0.16);
+
+    for(const b of BLOBS){
+      const u=(t/CYC_BLOB)*TAU*b.sp+b.ph;
+      const x=(b.cx+Math.cos(u)*b.ax)*w;
+      const y=(b.cy+Math.sin(u*1.07)*b.ay)*h;
+      const breathe=1+Math.sin(u*1.6+b.ph)*0.09;
+      radial(x,y,Math.max(w,b.rx*w)*b.rx*breathe,b.c,b.a);
+    }
+
+    const gr=Math.min(w,h);
+    const damp=w<560?0.78:1;
+    const o=orbs(t);
+
+    /* 球后面的色雾：让球浮在光里，也给 backdrop-filter 一点可采样的内容 */
+    radial(o.A.x,o.A.y,o.A.r*3.2,[160,107,255],0.26*damp);
+    radial(o.A.x,o.A.y,o.A.r*2.0,[59,123,255], 0.30*damp);
+    radial(o.B.x,o.B.y,o.B.r*1.8,[73,230,255], 0.22*damp);
+
+    /* 实体球不画在这层 —— 糊过之后只剩一团光。这里只留「球在玻璃后面透出来的光」，
+       把体积感垫出来；脆棱交给玻璃表面的 #coverDrops。 */
+    radial(o.A.x,o.A.y,o.A.r*1.25,[73,230,255], 0.26*damp);
+    radial(o.B.x,o.B.y,o.B.r*1.9, [124,112,255],0.2*damp);
+    radial(o.C.x,o.C.y,o.C.r*2.1, [130,240,255],0.13*damp);
+
+    /* 白椭圆：玻璃的折射点，同样只放右半，别压字 */
+    const hx=w*(0.66+0.10*Math.sin(t/CYC_BLOB*TAU));
+    const hy=h*(0.26+0.06*Math.cos(t/CYC_BLOB*TAU*1.2));
+    ctx.save();
+    ctx.translate(hx,hy); ctx.rotate(-0.42); ctx.scale(1.9,0.8);
+    const hg=ctx.createRadialGradient(0,0,0,0,0,Math.max(28,gr*0.3));
+    hg.addColorStop(0,'rgba(255,255,255,0.16)');
+    hg.addColorStop(0.5,'rgba(255,255,255,0.05)');
+    hg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=hg;
+    ctx.beginPath(); ctx.arc(0,0,Math.max(28,gr*0.3),0,TAU); ctx.fill();
+    ctx.restore();
+
+    ctx.globalCompositeOperation='source-over';
+
+    /* 边缘加深：玻璃有厚度，四周必须比中心暗，否则整块面板会飘起来 */
+    const vig=ctx.createRadialGradient(w*0.66,h*0.52,Math.min(w,h)*0.18,w*0.66,h*0.52,Math.max(w,h)*0.92);
+    vig.addColorStop(0,'rgba(4,6,13,0)');
+    vig.addColorStop(0.6,'rgba(4,6,13,0.16)');
+    vig.addColorStop(1,'rgba(4,6,13,0.52)');
+    ctx.fillStyle=vig; ctx.fillRect(0,0,w,h);
+  }
+
+  function tick(now){
+    /* 绝对时间：水珠层要用同一套几何算球棱，两层的 t 必须一致 */
+    if(!document.hidden && vis) frame(now/1000);
+    raf=requestAnimationFrame(tick);
+  }
+  function start(){ if(!raf) raf=requestAnimationFrame(tick); }
+  function stop(){ if(raf){ cancelAnimationFrame(raf); raf=0; } }
+
+  const dash=host.closest('.view');
+  if(dash && 'IntersectionObserver' in window){
+    new IntersectionObserver(function(es){
+      vis=es[0].isIntersecting;
+      if(vis){ measure(); start(); } else { stop(); }
+    },{threshold:0.02}).observe(host);
+  }
+  if('ResizeObserver' in window){ new ResizeObserver(function(){ if(vis) frame(performance.now()/1000); }).observe(host); }
+  addEventListener('resize',function(){ if(vis) frame(performance.now()/1000); });
+
+  measure();
+  if(reduce){ frame(1.2); } else { start(); }
+})();
+
+/* ============ 液态玻璃封面 · 表面层 ============
+   画在玻璃面板「之上」（.cover-glass 的第一个子节点），不受 backdrop-filter 影响：
+   所以棱是脆的、高光是实的 —— 这才是「液态玻璃」该有的读法。
+   这层只画三样：漂移粒子、表面水珠、一枚主透镜。 */
+(function coverDrops(){
+  const host=document.querySelector('.cover-glass');
+  const cv=document.getElementById('coverDrops');
+  if(!host||!cv) return;
+  const ctx=cv.getContext('2d');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TAU=Math.PI*2, CYC_GOO=9.5;
+  let w=0,h=0,dpr=1,raf=0,vis=true;
+
+  /* 每颗水珠：位置（归一化）、半径（px 基准）、相位、漂移幅度、形变种子 */
+  const BEADS=[
+    {x:.66,y:.18,r:11.0,ph:0.0,amp:0.010,seed:0.7},
+    {x:.84,y:.62,r:9.0, ph:1.9,amp:0.013,seed:2.4},
+    {x:.63,y:.72,r:6.5, ph:3.4,amp:0.016,seed:4.1},
+    {x:.91,y:.24,r:5.5, ph:5.1,amp:0.012,seed:1.3},
+    {x:.78,y:.88,r:4.6, ph:2.6,amp:0.018,seed:3.7},
+    {x:.55,y:.72,r:3.8, ph:4.4,amp:0.020,seed:5.5},
+    {x:.95,y:.80,r:3.2, ph:0.9,amp:0.015,seed:0.2}
+  ];
+
+  function measure(){
+    const r=host.getBoundingClientRect();
+    if(r.width<2||r.height<2) return false;
+    dpr=Math.min(2,devicePixelRatio||1);
+    w=Math.round(r.width); h=Math.round(r.height);
+    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){
+      cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+    return true;
+  }
+
+  /* 球轨道：与 coverLiquid 同一套公式，只是这里画布就是玻璃面板本身，不需要 gx/gy */
+  function orbs(t){
+    const baseR=Math.max(22,Math.min(h*0.33,w*0.155));
+    const clX=function(x,r){ return Math.min(w-r*1.06,Math.max(r*1.06,x)); };
+    const clY=function(y,r){ return Math.min(h-r*1.12,Math.max(r*1.02,y)); };
+    const nar=w<560;
+    const A={r:nar?baseR*0.66:baseR};
+    A.x=clX(w*((nar?0.92:0.70)+(nar?0.05:0.15)*Math.sin(t/CYC_GOO*TAU*1.05+0.3)),A.r);
+    A.y=clY(h*((nar?0.14:0.50)+(nar?0.06:0.24)*Math.cos(t/CYC_GOO*TAU*0.88)),A.r);
+    return {A:A};
+  }
+
+  /* 同一条轮廓，按 k 缩放：棱、镜面、焦散全部长在同一条曲线上，
+     否则圆椭圆一混用，球上就会多出一道对不齐的「钩子」。 */
+  function shape(cx,cy,R,seed,k){
+    const N=96, sc=(k===undefined?1:k);
+    ctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const th=i/N*TAU;
+      const rr=R*sc*(1
+        +0.042*Math.sin(th*2+seed*1.7)
+        +0.030*Math.sin(th*3-seed*2.3)
+        +0.016*Math.sin(th*5+seed*0.9));
+      const x=cx+Math.cos(th)*rr*1.06;
+      const y=cy+Math.sin(th)*rr*0.9;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+  }
+
+  /* 开弧版：焦散只许画在球的下半圈 */
+  function shapeArc(cx,cy,R,seed,k,a0,a1){
+    const N=72, sc=(k===undefined?1:k);
+    ctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const th=a0+(a1-a0)*i/N;
+      const rr=R*sc*(1
+        +0.042*Math.sin(th*2+seed*1.7)
+        +0.030*Math.sin(th*3-seed*2.3)
+        +0.016*Math.sin(th*5+seed*0.9));
+      const x=cx+Math.cos(th)*rr*1.06;
+      const y=cy+Math.sin(th)*rr*0.9;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+  }
+
+  /* 液态玻璃球（实体版）：这层在玻璃「之上」，不会被糊，所以棱是脆的。
+     ① 体：亮透镜 —— 球体要比面板「透光」，才像光穿过一块厚玻璃
+     ② 内壁暗环（玻璃厚度）+ 左上透光 ③ 左上镜面柔光斑 ④ 底部焦散 ⑤ 菲涅尔细棱 */
+  function droplet(cx,cy,R,seed,c1,c2,a){
+    shape(cx,cy,R,seed,1);
+    const g=ctx.createLinearGradient(cx-R*0.7,cy-R*0.95,cx+R*0.8,cy+R*0.85);
+    g.addColorStop(0,   'rgba(236,250,255,'+(a*0.11)+')');
+    g.addColorStop(0.28,'rgba(255,196,220,'+(a*0.05)+')');
+    g.addColorStop(0.50,'rgba(190,255,236,'+(a*0.04)+')');
+    g.addColorStop(0.72,'rgba(198,214,255,'+(a*0.05)+')');
+    g.addColorStop(1,   'rgba(236,250,255,'+(a*0.13)+')');
+    ctx.fillStyle=g; ctx.fill();
+
+    ctx.save();
+    shape(cx,cy,R,seed,1); ctx.clip();
+
+    const wall=ctx.createRadialGradient(cx+R*0.12,cy+R*0.16,R*0.42,cx+R*0.12,cy+R*0.16,R*1.16);
+    wall.addColorStop(0,   'rgba(4,8,18,0)');
+    wall.addColorStop(0.72,'rgba(4,8,18,'+(a*0.10)+')');
+    wall.addColorStop(1,   'rgba(4,8,18,'+(a*0.34)+')');
+    ctx.fillStyle=wall; ctx.fillRect(cx-R*1.5,cy-R*1.5,R*3,R*3);
+
+    const lit=ctx.createRadialGradient(cx-R*0.3,cy-R*0.4,0,cx-R*0.3,cy-R*0.4,R*0.86);
+    lit.addColorStop(0,   'rgba(222,252,255,'+(a*0.18)+')');
+    lit.addColorStop(0.45,'rgba(222,252,255,'+(a*0.08)+')');
+    lit.addColorStop(1,   'rgba(222,252,255,0)');
+    ctx.fillStyle=lit; ctx.fillRect(cx-R*1.5,cy-R*1.5,R*3,R*3);
+
+    /* 镜面：不描线，改成贴在左上内壁的柔光斑 —— 描线怎么叠都会留下「双轮廓」，光斑不会 */
+    const hx=cx-R*0.34, hy=cy-R*0.40;
+    ctx.save();
+    ctx.translate(hx,hy); ctx.rotate(-0.55); ctx.scale(1.55,0.78);
+    const hg=ctx.createRadialGradient(0,0,0,0,0,R*0.72);
+    hg.addColorStop(0,   'rgba(252,255,255,'+(a*0.50)+')');
+    hg.addColorStop(0.34,'rgba(240,254,255,'+(a*0.20)+')');
+    hg.addColorStop(0.68,'rgba(226,250,255,'+(a*0.05)+')');
+    hg.addColorStop(1,   'rgba(226,250,255,0)');
+    ctx.fillStyle=hg;
+    ctx.beginPath(); ctx.arc(0,0,R*0.72,0,TAU); ctx.fill();
+    ctx.restore();
+
+    /* 底部焦散：只画下半圈，两端靠径向衰减收掉，不会在弧端切一刀 */
+    const cg=ctx.createRadialGradient(cx,cy+R*0.72,0,cx,cy+R*0.72,R*0.86);
+    cg.addColorStop(0,   'rgba(200,255,240,'+(a*0.72)+')');
+    cg.addColorStop(0.55,'rgba(150,235,255,'+(a*0.42)+')');
+    cg.addColorStop(1,   'rgba(200,180,255,0)');
+    shapeArc(cx,cy,R,seed,0.87,Math.PI*0.16,Math.PI*0.84);
+    ctx.strokeStyle=cg;
+    ctx.lineWidth=Math.max(1.2,R*0.05); ctx.stroke();
+
+    ctx.restore();
+
+    /* 菲涅尔细棱：一条线就够 */
+    shape(cx,cy,R,seed,1);
+    const rg=ctx.createLinearGradient(cx-R*0.9,cy-R*0.9,cx+R*0.9,cy+R*0.9);
+    rg.addColorStop(0,   'rgba(255,246,252,'+(a*0.52)+')');
+    rg.addColorStop(0.28,'rgba(255,170,150,'+(a*0.24)+')');
+    rg.addColorStop(0.50,'rgba(190,255,230,'+(a*0.22)+')');
+    rg.addColorStop(0.74,'rgba(120,200,255,'+(a*0.24)+')');
+    rg.addColorStop(1,   'rgba(186,140,255,'+(a*0.48)+')');
+    ctx.strokeStyle=rg;
+    ctx.lineWidth=0.9; ctx.stroke();
+  }
+
+  /* 内部镜面高光：玻璃球的反射点，永远朝左上 */
+  function spec(cx,cy,R,a){
+    ctx.save();
+    ctx.translate(cx-R*0.3,cy-R*0.34);
+    ctx.rotate(-0.5);
+    const g=ctx.createRadialGradient(0,0,0,0,0,R*0.6);
+    g.addColorStop(0,'rgba(255,255,255,'+a+')');
+    g.addColorStop(0.42,'rgba(232,250,255,'+(a*0.28)+')');
+    g.addColorStop(1,'rgba(232,250,255,0)');
+    ctx.fillStyle=g;
+    ctx.scale(1.6,0.72);
+    ctx.beginPath(); ctx.arc(0,0,R*0.6,0,TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  /* 一颗水珠：① 上亮下暗的球体 ② 一圈脆棱 ③ 底部焦散弧 ④ 左上高光点 */
+  function bead(cx,cy,R,seed){
+    const N=48;
+    ctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const th=i/N*TAU;
+      const rr=R*(1+0.045*Math.sin(th*3+seed*2.1)+0.03*Math.sin(th*5-seed*1.4));
+      const x=cx+Math.cos(th)*rr, y=cy+Math.sin(th)*rr*0.94;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    const g=ctx.createLinearGradient(cx-R*.7,cy-R*.8,cx+R*.6,cy+R*.8);
+    g.addColorStop(0,'rgba(255,255,255,0.34)');
+    g.addColorStop(0.42,'rgba(198,236,255,0.14)');
+    g.addColorStop(0.78,'rgba(120,160,255,0.12)');
+    g.addColorStop(1,'rgba(8,12,26,0.30)');
+    ctx.fillStyle=g; ctx.fill();
+
+    ctx.strokeStyle='rgba(236,252,255,0.58)';
+    ctx.lineWidth=Math.max(0.8,R*0.075); ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx,cy,R*0.78,Math.PI*0.22,Math.PI*0.78);
+    ctx.strokeStyle='rgba(180,240,255,0.5)';
+    ctx.lineWidth=Math.max(0.7,R*0.06); ctx.stroke();
+
+    const sx=cx-R*0.34, sy=cy-R*0.38, sr=Math.max(0.9,R*0.26);
+    const sg=ctx.createRadialGradient(sx,sy,0,sx,sy,sr);
+    sg.addColorStop(0,'rgba(255,255,255,0.95)');
+    sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=sg;
+    ctx.beginPath(); ctx.arc(sx,sy,sr,0,TAU); ctx.fill();
+  }
+
+  /* 封面里自己的流动粒子：小、慢、往上飘，和全站 #flow 同一个物理手感
+     （Motion Prompt #015 · 发射器 + 重力 + 末段淡出），只是半径更小、光更软。 */
+  const MOTES=[];
+  const MOTE_N=26;
+  const MOTE_C=[[73,230,255],[110,255,200],[150,200,255],[170,110,255],[255,120,180],[255,205,130],[120,255,235]];
+  for(let i=0;i<MOTE_N;i++){
+    MOTES.push({
+      u:Math.random(),
+      v:Math.random(),
+      r:0.8+Math.random()*1.5,
+      sp:0.014+Math.random()*0.026,
+      sw:0.004+Math.random()*0.012,
+      ph:Math.random()*TAU,
+      c:MOTE_C[i%MOTE_C.length],
+      a:0.25+Math.random()*0.4
+    });
+  }
+
+  function mote(m,t){
+    const y=((m.v-t*m.sp)%1+1)%1;                 /* 上浮并循环 */
+    const x=((m.u+Math.sin(t*0.6+m.ph)*m.sw)%1+1)%1;
+    const px=x*w, py=y*h;
+    const fade=Math.min(1, y*4)*Math.min(1,(1-y)*3.4);  /* 两端淡出，不出现硬切 */
+    const a=m.a*fade;
+    if(a<=0.01) return;
+    const R=m.r*(1+0.25*Math.sin(t*2.2+m.ph));
+    const g=ctx.createRadialGradient(px,py,0,px,py,R*3.2);
+    g.addColorStop(0,'rgba('+m.c[0]+','+m.c[1]+','+m.c[2]+','+a+')');
+    g.addColorStop(0.4,'rgba('+m.c[0]+','+m.c[1]+','+m.c[2]+','+(a*0.3)+')');
+    g.addColorStop(1,'rgba('+m.c[0]+','+m.c[1]+','+m.c[2]+',0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(px,py,R*3.2,0,TAU); ctx.fill();
+  }
+
+  function frame(t){
+    if(!measure()) return;
+    ctx.clearRect(0,0,w,h);
+
+    const narrow=w<560;
+    const scale=narrow?0.82:1;
+
+    for(const m of MOTES) mote(m,t);
+
+    if(w>2&&h>2){
+      const o=orbs(t);
+      /* 只放一枚主透镜：小尺度的细节交给水珠和粒子，多一个球只会互相抢 */
+      droplet(o.A.x,o.A.y,o.A.r,0.6,[73,230,255],[126,92,255],0.78*scale);
+      spec(o.A.x,o.A.y,o.A.r,0.42*scale);
+    }
+
+    for(const b of BEADS){
+      const u=t*0.55+b.ph;
+      const x=w*(b.x+Math.sin(u)*b.amp*3);
+      const y=h*(b.y+Math.cos(u*0.83)*b.amp*2.2);
+      const R=b.r*scale*(0.94+0.06*Math.sin(u*1.7));
+      if(x<0||x>w||y<0||y>h) continue;
+      bead(x,y,R,b.seed);
+    }
+  }
+
+  function tick(now){
+    if(!document.hidden && vis) frame(now/1000);
+    raf=requestAnimationFrame(tick);
+  }
+  function start(){ if(!raf) raf=requestAnimationFrame(tick); }
+  function stop(){ if(raf){ cancelAnimationFrame(raf); raf=0; } }
+
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(es){
+      vis=es[0].isIntersecting;
+      if(vis){ measure(); start(); } else { stop(); }
+    },{threshold:0.02}).observe(host);
+  }
+  if('ResizeObserver' in window){ new ResizeObserver(function(){ if(vis) frame(performance.now()/1000); }).observe(host); }
+  addEventListener('resize',function(){ if(vis) frame(performance.now()/1000); });
+
+  measure();
+  if(reduce){ frame(1.2); } else { start(); }
 })();
 function pad(n){ return String(n).padStart(2,'0'); }
 function updateClock(){ const d=new Date(); document.getElementById('clock').textContent=`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
