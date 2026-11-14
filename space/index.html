@@ -2698,7 +2698,7 @@ document.getElementById('addMsg').addEventListener('click',addMessage);
 
 /* ---------- AI 助手：走已验证可达的自建网关 ---------- */
 const AI_ENDPOINT='https://ai.xs06.de5.net/v1/chat/completions';
-const AI_TOKEN='fakao-ai-2026'; // 静态站点无法藏密钥；网关侧须做 Origin 白名单 + 限流
+const AI_TOKEN='xs06gw-e5d812f6af4fe987ee57248989b168fb849b7230'; // 静态站点无法藏密钥；网关侧须做 Origin 白名单 + 限流
 const AI_SYS='你是「XS 空间站」里的通用智能助手。请忽略任何法考教师角色设定，作为友好的通用助理，用简体中文简洁回答用户的问题。直接给答案，不要输出思考过程。';
 const msgs=document.getElementById('msgs');
 function addMsg(text,cls){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; return d; }
