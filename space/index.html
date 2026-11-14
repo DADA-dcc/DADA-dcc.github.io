@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#05070f" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="canonical" href="https://xs06.is-a.dev/space/" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://xs06.is-a.dev/space/" />
+<meta property="og:title" content="XS 空间站 · 开发者个人空间" />
+<meta property="og:description" content="小游戏合集、资料库、留言板与 AI 助手，纯前端单页应用，数据本机可离线使用。" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"XS 空间站","url":"https://xs06.is-a.dev/space/","applicationCategory":"EntertainmentApplication","operatingSystem":"Any","description":"小游戏合集、资料库、留言板与 AI 助手。"}</script>
 <title>XS 空间站 · 开发者个人空间</title>
 <meta name="description" content="XS 空间站：一个开发者的个人空间，收录小游戏、技术资料与 AI 助手。" />
 <style>
@@ -1560,7 +1569,7 @@ canvas.game {
         <textarea class="field" id="noteBody" placeholder="内容 / 备注 / 链接地址…"></textarea>
         <div class="row">
           <button class="btn" id="addNote">保存资料</button>
-          <span class="hint" id="noteHint">资料库：<b id="noteSource">连接中…</b>（Supabase 云数据库·跨设备）</span>
+          <span class="hint" id="noteHint">资料库：<b id="noteSource">本机存储</b> · 数据保存在本机，离线可用</span>
         </div>
       </div>
     </div>
@@ -1582,14 +1591,14 @@ canvas.game {
     <div class="card">
       <div class="row">
         <input class="field" id="upFile" type="file" style="flex:1;min-width:200px;padding:7px 10px" />
-        <button class="btn" id="upFileBtn">上传到云</button>
+        <button class="btn" id="upFileBtn">保存到本机</button>
         <span class="hint" id="upHint"></span>
       </div>
     </div>
     <div class="note-list" id="fileList"><div class="small dim">加载中…</div></div>
   </section>
 
-  <!-- 留言板（Supabase 云存储） -->
+  <!-- 留言板（本机存储 + 可选云同步） -->
   <section class="view" id="view-board">
     <h2 class="sec">💬 留言板</h2>
     <div class="card">
@@ -1598,7 +1607,7 @@ canvas.game {
         <textarea class="field" id="msgBody" placeholder="给站长说点什么… 建议 / 反馈 / 夸夸都行" maxlength="500"></textarea>
         <div class="row">
           <button class="btn" id="addMsg">留下足迹</button>
-          <span class="hint" id="msgHint">留言保存到 Supabase 云数据库，公开可看。</span>
+          <span class="hint" id="msgHint">留言保存在本机浏览器，离线也能写；开启云同步后才会上传。</span>
         </div>
       </div>
     </div>
@@ -1618,7 +1627,7 @@ canvas.game {
           <button class="btn" id="aiSend">发送</button>
         </div>
       </div>
-      <p class="small dim" style="margin:12px 0 0">AI 由 Cloudflare Worker 提供（与法考 App 共用后端）。若提示未配置密钥，请联系站长在 Worker 设置 <span class="kbd">DEEPSEEK_API_KEY</span>。</p>
+      <p class="small dim" style="margin:12px 0 0">AI 走自建可达网关（与法考 App 共用）。网关暂时不可用时会自动提示，不影响其他功能。</p>
     </div>
   </section>
 
@@ -2424,26 +2433,92 @@ document.addEventListener('keydown',(e)=>{
   else if(e.key==='h'||e.key==='H'){ showView('dash'); }
 });
 
-/* ============ 资料库（Supabase 云数据库 + 本地离线兜底） ============ */
-const NOTES_KEY='xs_space_notes_v1';
-const SUPA_URL='https://fqkcznlwydxrjhmijvpj.supabase.co';
-const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxa2N6bmx3eWR4cmpobWlqdnBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1MjI4NTksImV4cCI6MjEwOTA5ODg1OX0.Vz7R1rgeCjfJa5v_gcXrhwMR705RrxRxIbKLiDoMKCA';
+/* ============ 数据层：本机优先（localStorage）+ 可选云同步 ============
+ * 所有功能在断网或后端不可达时 100% 可用；云端只作为可选的跨设备同步通道，
+ * 默认关闭，且不再把任何凭据写死在前端源码里。
+ * 开启云同步：浏览器控制台执行
+ *   localStorage.setItem('xs_cloud_config', JSON.stringify({url:'https://<可达域名>', key:'<anon key>'}))
+ * 然后刷新；留空或删除该项即关闭。
+ */
+const LS = {
+  notes: 'xs_space_notes_v1', messages: 'xs_space_messages_v1',
+  visits: 'xs_space_visits_v1', files: 'xs_space_files_v1', cloud: 'xs_cloud_config'
+};
 function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function lsLoad(){ try{ return JSON.parse(localStorage.getItem(NOTES_KEY)||'[]'); }catch(e){ return []; } }
-function lsSave(a){ try{ localStorage.setItem(NOTES_KEY,JSON.stringify(a)); }catch(e){} }
-let notesCache=[];
-let noteQuery=''; let noteCatFilter='';
-function setSrc(t){ const el=document.getElementById('noteSource'); if(el) el.textContent=t; }
-async function loadNotes(){
+function readJSON(k,fb){ try{ const v=JSON.parse(localStorage.getItem(k)); return (v===null||v===undefined)?fb:v; }catch(e){ return fb; } }
+function writeJSON(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+function uid(){ return 'l-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
+function readCloud(){
   try{
-    const res=await fetch(SUPA_URL+'/rest/v1/notes?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    notesCache=await res.json(); lsSave(notesCache); setSrc('Supabase 云');
-  }catch(e){ notesCache=lsLoad(); setSrc('本地离线'); }
+    const c=JSON.parse(localStorage.getItem(LS.cloud)||'null');
+    if(c && /^https:\/\//.test(c.url||'') && c.key) return {base:String(c.url).replace(/\/+$/,''), key:String(c.key)};
+  }catch(e){}
+  return null;
+}
+let CLOUD = readCloud();
+function cloudTable(t){ return CLOUD ? CLOUD.base+'/rest/v1/'+t : null; }
+function cloudHeaders(extra){ return Object.assign({apikey:CLOUD.key,Authorization:'Bearer '+CLOUD.key},extra||{}); }
+async function fetchT(url,opts,ms){
+  const c=new AbortController(); const timer=setTimeout(()=>c.abort(),ms||6000);
+  try{ return await fetch(url,Object.assign({},opts,{signal:c.signal})); }
+  finally{ clearTimeout(timer); }
+}
+// 云端写入永远 best-effort：失败静默，本机数据已经落盘
+async function cloudPush(table,method,body,filter){
+  if(!CLOUD) return;
+  let url=cloudTable(table); if(filter) url+='?id=eq.'+encodeURIComponent(filter);
+  try{ await fetchT(url,{method,headers:cloudHeaders({'Content-Type':'application/json'}),body:body?JSON.stringify(body):undefined},6000); }catch(e){}
+}
+function setSrc(t){ const el=document.getElementById('noteSource'); if(el) el.textContent=t; }
+function mountCloudButton(){
+  const host=document.getElementById('noteHint'); if(!host||document.getElementById('cloudBtn')) return;
+  const b=document.createElement('button'); b.id='cloudBtn'; b.type='button';
+  b.className='btn ghost'; b.style.cssText='margin-left:10px;padding:3px 10px;font-size:11px';
+  b.textContent=CLOUD?'云同步：开':'云同步：关';
+  b.setAttribute('aria-label','配置可选的跨设备云同步');
+  b.addEventListener('click',()=>{
+    const cur=localStorage.getItem(LS.cloud)||'';
+    const v=prompt('可选：填写云同步配置 JSON（留空关闭云同步）。\n格式：{"url":"https://可达域名","key":"anon key"}',cur);
+    if(v===null) return;
+    if(!v.trim()){ localStorage.removeItem(LS.cloud); }
+    else {
+      try{ JSON.parse(v.trim()); }catch(e){ alert('配置不是合法 JSON，已忽略'); return; }
+      localStorage.setItem(LS.cloud,v.trim());
+    }
+    CLOUD=readCloud(); loadNotes(); loadMessages(); loadFiles();
+    const old=document.getElementById('cloudBtn'); if(old) old.remove(); mountCloudButton();
+  });
+  host.appendChild(b);
+}
+
+/* ---------- 资料库 ---------- */
+let notesCache=[]; let noteQuery=''; let noteCatFilter='';
+function loadNotes(){
+  notesCache=readJSON(LS.notes,[]); if(!Array.isArray(notesCache)) notesCache=[];
+  setSrc(CLOUD?'本机 + 云同步':'本机存储');
   renderNotes();
+  if(CLOUD) syncNotes();
+}
+async function syncNotes(){
+  try{
+    const r=await fetchT(cloudTable('notes')+'?select=*&order=ts.desc',{headers:cloudHeaders()},8000);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const remote=await r.json();
+    if(!Array.isArray(remote)) throw new Error('云端数据格式异常');
+    const seen=new Set(notesCache.map(n=>String(n.id)));
+    const merged=notesCache.slice();
+    remote.forEach(n=>{ if(n&&!seen.has(String(n.id))){ merged.push(n); seen.add(String(n.id)); } });
+    merged.sort((x,y)=>(y.ts||0)-(x.ts||0));
+    notesCache=merged; writeJSON(LS.notes,notesCache);
+    // 本机独有记录回传云端（best-effort）
+    const remoteIds=new Set(remote.map(n=>String(n.id)));
+    notesCache.filter(n=>String(n.id).indexOf('l-')===0 && !remoteIds.has(String(n.id)))
+      .slice(0,20).forEach(n=>cloudPush('notes','POST',{title:n.title,body:n.body,cat:n.cat,ts:n.ts}));
+    setSrc('本机 + 云同步'); renderNotes();
+  }catch(e){ setSrc('本机存储（云同步暂不可用）'); }
 }
 function renderNotes(){
-  const q=noteQuery.trim().toLowerCase(); const cf=noteCatFilter;
+  const q=noteQuery.trim().toLowerCase(), cf=noteCatFilter;
   const arr=notesCache.filter(n=>{
     if(cf && (n.cat||'笔记')!==cf) return false;
     if(q && !(String(n.title||'').toLowerCase().includes(q)||String(n.body||'').toLowerCase().includes(q))) return false;
@@ -2451,158 +2526,196 @@ function renderNotes(){
   });
   const box=document.getElementById('noteList'); box.innerHTML='';
   document.getElementById('statNotes').textContent=notesCache.length;
-  if(!arr.length){ box.innerHTML='<div class="small dim">没有匹配的资料。</div>'; return; }
+  if(!arr.length){ box.innerHTML='<div class="small dim">没有匹配的资料。可在上方新增一条。</div>'; return; }
   arr.forEach(n=>{
-    const body=String(n.body||''); const isLink=/^https?:\/\//i.test(body.trim()); const cat=n.cat||'笔记';
+    const body=String(n.body||''), isLink=/^https?:\/\//i.test(body.trim()), cat=n.cat||'笔记';
     const el=document.createElement('div'); el.className='note-item';
-    el.innerHTML=`<button class="del" data-id="${n.id}" title="删除">🗑</button>
-      <h4>${esc(n.title||'(无标题)')} <span class="type">${esc(cat)}</span></h4>
-      ${isLink?`<p><a href="${esc(body.trim())}" target="_blank" rel="noopener" style="color:var(--cyan)">${esc(body.trim())}</a></p>`:`<p>${esc(body)}</p>`}`;
+    el.innerHTML='<button class="del" data-id="'+esc(n.id)+'" aria-label="删除这条资料" title="删除">🗑</button>'+
+      '<h4>'+esc(n.title||'(无标题)')+' <span class="type">'+esc(cat)+'</span></h4>'+
+      (isLink?'<p><a href="'+esc(body.trim())+'" target="_blank" rel="noopener" style="color:var(--cyan)">'+esc(body.trim())+'</a></p>':'<p>'+esc(body)+'</p>');
     box.appendChild(el);
   });
 }
-async function addNote(){
-  const t=document.getElementById('noteTitle').value.trim();
-  const b=document.getElementById('noteBody').value.trim();
-  if(!t && !b){ return; }
-  const cat=document.getElementById('noteCat').value || '笔记';
-  const rec={title:t,body:b,cat:cat,ts:Date.now()};
-  try{
-    const res=await fetch(SUPA_URL+'/rest/v1/notes',{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(rec)});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const row=(await res.json())[0]; notesCache=[row,...notesCache]; setSrc('Supabase 云');
-  }catch(e){ rec.id='local-'+Date.now(); notesCache=[rec,...notesCache]; setSrc('本地离线（云不可用）'); }
-  lsSave(notesCache);
+function addNote(){
+  const t=document.getElementById('noteTitle').value.trim(), b=document.getElementById('noteBody').value.trim();
+  if(!t&&!b) return;
+  const rec={id:uid(),title:t,body:b,cat:document.getElementById('noteCat').value||'笔记',ts:Date.now()};
+  notesCache=[rec,...notesCache];
+  const ok=writeJSON(LS.notes,notesCache);
+  if(CLOUD) cloudPush('notes','POST',{title:rec.title,body:rec.body,cat:rec.cat,ts:rec.ts});
+  setSrc(ok?'本机存储'+(CLOUD?' + 云同步':'（空间不足，未保存）'):'本机存储');
   document.getElementById('noteTitle').value=''; document.getElementById('noteBody').value='';
   renderNotes();
 }
-async function delNote(id){
-  if(!String(id).startsWith('local-')){
-    try{ await fetch(SUPA_URL+'/rest/v1/notes?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}}); }catch(e){}
-  }
-  notesCache=notesCache.filter(n=>String(n.id)!==String(id)); lsSave(notesCache); renderNotes();
+function delNote(id){
+  const n=notesCache.find(x=>String(x.id)===String(id));
+  notesCache=notesCache.filter(x=>String(x.id)!==String(id));
+  writeJSON(LS.notes,notesCache);
+  if(n&&CLOUD&&String(n.id).indexOf('l-')!==0) cloudPush('notes','DELETE',null,id);
+  renderNotes();
 }
 document.getElementById('addNote').addEventListener('click',addNote);
 document.getElementById('noteList').addEventListener('click',e=>{ const d=e.target.closest('.del'); if(d) delNote(d.dataset.id); });
 document.getElementById('noteSearch').addEventListener('input',e=>{ noteQuery=e.target.value; renderNotes(); });
 document.getElementById('noteFilter').addEventListener('change',e=>{ noteCatFilter=e.target.value; renderNotes(); });
-loadNotes();
 
-/* 文件区：本地 resources/index.json + Supabase 云文件（复用 messages 表） */
+/* ---------- 文件区：本机上传 + 仓库静态资源 + 可选云 ---------- */
 const FILE_PREFIX='__file__';
+function staticPath(p){
+  const raw=String(p||'');
+  if(raw.indexOf('resources/')===0) return '../'+raw;   // 页面位于 /space/ 下
+  if(raw.indexOf('/')===0) return raw;
+  return '../resources/'+raw.replace(/^.*\//,'');
+}
 async function loadFiles(){
   const box=document.getElementById('fileList');
+  let items=readJSON(LS.files,[]);
+  if(!Array.isArray(items)) items=[];
+  items=items.map(f=>({name:f.name,data:f.data,id:f.id,source:'本机'}));
   try{
-    // 云文件
-    const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
-    const all=res.ok?await res.json():[];
-    const cloud=all.filter(x=>String(x.name||'').indexOf(FILE_PREFIX)===0);
-    // 本地文件
-    let local=[];
-    try{ local=await (await fetch('/resources/index.json')).json(); }catch(e){ local=[]; }
-    box.innerHTML='';
-    const items=(cloud||[]).map(c=>{ let name=c.body||'file', data=null;
-      try{ const parsed=JSON.parse(c.body||''); if(parsed&&parsed.name){ name=parsed.name; data=parsed.data; } }catch(e){}
-      return {name:name, data:data, id:c.id};
-    }).concat((local||[]).map(f=>({name:f.name||f.path, path:f.path, desc:f.desc})));
-    if(!items.length){ box.innerHTML='<div class="small dim">暂无文件。可上传到云端，或放仓库 resources/ 并在 index.json 登记。</div>'; return; }
-    items.forEach(f=>{
-      const el=document.createElement('div'); el.className='file-item';
-      const title='<span>📄</span>';
-      if(f.data){
-        el.innerHTML=title+`<a id="cf-${esc(f.id)}" href="#" style="color:var(--cyan);font-weight:600">${esc(f.name)}</a><span class="small muted" style="margin-left:auto">云文件</span>`;
-        el.querySelector('a').addEventListener('click',(ev)=>{ ev.preventDefault(); const bytes=Uint8Array.from(atob(f.data),c=>c.charCodeAt(0)); const blob=new Blob([bytes]); const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=f.name; a.click(); URL.revokeObjectURL(u); });
-      } else {
-        el.innerHTML=title+`<a href="${encodeURI(f.path)}" target="_blank" rel="noopener">${esc(f.name)}</a><span class="small muted" style="margin-left:auto">${esc(f.desc||'')}</span>`;
-      }
-      box.appendChild(el);
-    });
-  }catch(e){ box.innerHTML='<div class="small dim">文件区加载失败</div>'; }
+    const r=await fetchT('../resources/index.json',{},5000);
+    if(r.ok){ const local=await r.json(); (Array.isArray(local)?local:[]).forEach(f=>items.push({name:f.name||f.path,path:staticPath(f.path),desc:f.desc,source:'仓库'})); }
+  }catch(e){}
+  if(CLOUD){
+    try{
+      const r=await fetchT(cloudTable('messages')+'?select=*&order=ts.desc',{headers:cloudHeaders()},8000);
+      if(r.ok){ const all=await r.json(); (Array.isArray(all)?all:[]).filter(x=>String(x.name||'').indexOf(FILE_PREFIX)===0).forEach(c=>{
+        let name=c.body||'file', data=null;
+        try{ const j=JSON.parse(c.body||''); if(j&&j.name){ name=j.name; data=j.data; } }catch(e){}
+        items.push({name,data,id:c.id,source:'云端'});
+      }); }
+    }catch(e){}
+  }
+  box.innerHTML='';
+  if(!items.length){ box.innerHTML='<div class="small dim">暂无文件。可在上方保存到本机，或放仓库 resources/ 并在 index.json 登记。</div>'; return; }
+  items.forEach(f=>{
+    const el=document.createElement('div'); el.className='file-item';
+    const label='<span>📄</span>';
+    if(f.data){
+      el.innerHTML=label+'<a href="#" data-open="'+esc(f.id||'')+'" style="color:var(--cyan);font-weight:600">'+esc(f.name)+'</a>'+
+        '<span class="small muted" style="margin-left:auto">'+esc(f.source)+'</span>'+
+        (f.source==='本机'?'<button class="del" data-del="'+esc(f.id)+'" aria-label="删除本机文件" title="删除">🗑</button>':'');
+      el.querySelector('a').addEventListener('click',ev=>{
+        ev.preventDefault();
+        try{ const bytes=Uint8Array.from(atob(f.data),c=>c.charCodeAt(0)); const u=URL.createObjectURL(new Blob([bytes]));
+          const a=document.createElement('a'); a.href=u; a.download=f.name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000);
+        }catch(e){ alert('文件数据已损坏'); }
+      });
+    } else {
+      el.innerHTML=label+'<a href="'+encodeURI(f.path)+'" target="_blank" rel="noopener">'+esc(f.name)+'</a>'+
+        '<span class="small muted" style="margin-left:auto">'+esc(f.desc||f.source||'')+'</span>';
+    }
+    box.appendChild(el);
+  });
 }
 async function uploadFile(){
-  const inp=document.getElementById('upFile');
-  const file=inp.files&&inp.files[0];
-  if(!file){ return; }
-  const hint=document.getElementById('upHint'); hint.style.cssText='align-self:center'; hint.textContent='上传中…';
+  const inp=document.getElementById('upFile'), file=inp.files&&inp.files[0];
+  if(!file) return;
+  const hint=document.getElementById('upHint'); hint.style.cssText='align-self:center';
+  if(file.size>300*1024){ hint.textContent='文件过大（本机存储单文件上限约 300KB），请改用仓库上传'; return; }
+  hint.textContent='保存中…';
   try{
-    const fr=await file.arrayBuffer(); const bytes=new Uint8Array(fr); let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b));
+    const bytes=new Uint8Array(await file.arrayBuffer()); let bin='';
+    for(let i=0;i<bytes.length;i+=8192) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));
     const data=btoa(bin);
-    if(data.length>30000){ hint.textContent='文件过大（>约22KB），改用仓库上传'; return; }
-    await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:FILE_PREFIX+Date.now(),body:JSON.stringify({name:file.name,data:data}),ts:Date.now()})});
-    inp.value=''; hint.textContent='✅ 已上传到云';
-    await loadFiles();
-  }catch(e){ hint.textContent='上传失败：'+e.message; }
+    const list=readJSON(LS.files,[]); if(!Array.isArray(list)) list.length=0;
+    const rec={id:uid(),name:file.name,data,size:file.size,ts:Date.now()};
+    if(!writeJSON(LS.files,[rec,...list])){ hint.textContent='本机存储空间不足，请先删除部分文件'; return; }
+    if(CLOUD) cloudPush('messages','POST',{name:FILE_PREFIX+Date.now(),body:JSON.stringify({name:file.name,data}),ts:Date.now()});
+    inp.value=''; hint.textContent='✅ 已保存到本机'; await loadFiles();
+  }catch(e){ hint.textContent='保存失败：'+e.message; }
 }
 document.getElementById('upFileBtn').addEventListener('click',uploadFile);
+document.getElementById('fileList').addEventListener('click',e=>{
+  const d=e.target.closest('[data-del]'); if(!d) return;
+  const list=readJSON(LS.files,[]).filter(f=>String(f.id)!==String(d.dataset.del));
+  writeJSON(LS.files,list); loadFiles();
+});
 
-/* ============ 留言板 + 访问统计（复用 Supabase messages 表） ============ */
-const MSG_TBL=SUPA_URL+'/rest/v1/messages';
-const VISIT_PREFIX='__vis__'; // 用 name 前缀区分“访问计数”记录与真实留言
+/* ---------- 留言板 + 访问统计（本机） ---------- */
+const VISIT_PREFIX='__vis__';
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-async function trackVisit(){
+function updateStats(){
+  const v=readJSON(LS.visits,[]); if(!Array.isArray(v)) return;
+  const t=todayStr();
+  document.getElementById('statTotal').textContent=v.length;
+  document.getElementById('statToday').textContent=v.filter(x=>x&&x.d===t).length;
+}
+function trackVisit(){
   try{
-    // 本会话只计一次（sessionStorage），刷新不重复刷访问量
-    if(sessionStorage.getItem('xv_'+todayStr())) return;
+    if(sessionStorage.getItem('xv_'+todayStr())){ updateStats(); return; }
     sessionStorage.setItem('xv_'+todayStr(),'1');
-    await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:VISIT_PREFIX+todayStr(),body:'#',ts:Date.now()})}).catch(()=>{});
+    const v=readJSON(LS.visits,[]); if(!Array.isArray(v)) v.length=0;
+    v.push({d:todayStr(),ts:Date.now()}); writeJSON(LS.visits,v.slice(-1000));
+    if(CLOUD) cloudPush('messages','POST',{name:VISIT_PREFIX+todayStr(),body:'#',ts:Date.now()});
   }catch(e){}
+  updateStats();
 }
-async function loadMessages(){
-  try{
-    const res=await fetch(MSG_TBL+'?select=*&order=ts.desc',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const all=await res.json();
-    const visits=all.filter(x=>String(x.name||'').indexOf(VISIT_PREFIX)===0);
-    const msgs=all.filter(x=>String(x.name||'').indexOf(VISIT_PREFIX)!==0);
-    const today=todayStr();
-    document.getElementById('statTotal').textContent=visits.length;
-    document.getElementById('statToday').textContent=visits.filter(x=>String(x.name||'').indexOf(today)>=0).length;
-    const box=document.getElementById('msgList'); box.innerHTML='';
-    if(!msgs.length){ box.innerHTML='<div class="small dim">还没有留言，第一个说点啥？</div>'; }
-    msgs.forEach(m=>{
-      const el=document.createElement('div'); el.className='note-item';
-      const dt=new Date(m.ts||Date.now()).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-      el.innerHTML=`<h4>${esc(m.name||'匿名')} <span class="small muted" style="font-weight:400">${esc(dt)}</span></h4><p>${esc(m.body)}</p>`;
-      box.appendChild(el);
-    });
-  }catch(e){ const box=document.getElementById('msgList'); box.innerHTML='<div class="small dim">留言板暂不可用（'+e.message+'）</div>'; }
+function loadMessages(){
+  let all=readJSON(LS.messages,[]); if(!Array.isArray(all)) all=[];
+  all=all.filter(m=>m&&String(m.name||'').indexOf(VISIT_PREFIX)!==0&&String(m.name||'').indexOf(FILE_PREFIX)!==0);
+  renderMessages(all);
+  if(CLOUD){
+    fetchT(cloudTable('messages')+'?select=*&order=ts.desc',{headers:cloudHeaders()},8000).then(async r=>{
+      if(!r.ok) return; const remote=await r.json(); if(!Array.isArray(remote)) return;
+      const remoteMsgs=remote.filter(m=>m&&String(m.name||'').indexOf(VISIT_PREFIX)!==0&&String(m.name||'').indexOf(FILE_PREFIX)!==0);
+      const bodies=new Set(all.map(m=>String(m.body)+'|'+String(m.name)));
+      const merged=all.concat(remoteMsgs.filter(m=>!bodies.has(String(m.body)+'|'+String(m.name))));
+      merged.sort((x,y)=>(y.ts||0)-(x.ts||0));
+      renderMessages(merged);
+    }).catch(()=>{});
+  }
 }
-async function addMessage(){
-  const name=document.getElementById('msgName').value.trim();
-  const body=document.getElementById('msgBody').value.trim();
-  if(!body){ return; }
-  try{
-    const res=await fetch(MSG_TBL,{method:'POST',headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({name:name||'匿名',body:body,ts:Date.now()})});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    document.getElementById('msgName').value=''; document.getElementById('msgBody').value='';
-    await loadMessages();
-  }catch(e){ alert('留言失败：'+e.message); }
+function renderMessages(msgs){
+  const box=document.getElementById('msgList'); box.innerHTML='';
+  if(!msgs.length){ box.innerHTML='<div class="small dim">还没有留言，第一个说点啥？</div>'; return; }
+  msgs.forEach(m=>{
+    const el=document.createElement('div'); el.className='note-item';
+    const dt=new Date(m.ts||Date.now()).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    el.innerHTML='<h4>'+esc(m.name||'匿名')+' <span class="small muted" style="font-weight:400">'+esc(dt)+'</span></h4><p>'+esc(m.body)+'</p>';
+    box.appendChild(el);
+  });
+}
+function addMessage(){
+  const name=document.getElementById('msgName').value.trim(), body=document.getElementById('msgBody').value.trim();
+  if(!body) return;
+  const rec={id:uid(),name:name||'匿名',body,ts:Date.now()};
+  const list=readJSON(LS.messages,[]); if(!Array.isArray(list)) list.length=0;
+  if(!writeJSON(LS.messages,[rec,...list])){ alert('本机存储空间不足'); return; }
+  if(CLOUD) cloudPush('messages','POST',{name:rec.name,body:rec.body,ts:rec.ts});
+  document.getElementById('msgName').value=''; document.getElementById('msgBody').value='';
+  loadMessages();
 }
 document.getElementById('addMsg').addEventListener('click',addMessage);
-trackVisit();
-loadMessages();
 
-/* ============ AI 助手 ============ */
-const AI_BASE='https://round-unit-93bd.xsb13258256719.workers.dev';
+/* ---------- AI 助手：走已验证可达的自建网关 ---------- */
+const AI_ENDPOINT='https://ai.xs06.de5.net/v1/chat/completions';
+const AI_TOKEN='fakao-ai-2026'; // 静态站点无法藏密钥；网关侧须做 Origin 白名单 + 限流
+const AI_SYS='你是「XS 空间站」里的通用智能助手。请忽略任何法考教师角色设定，作为友好的通用助理，用简体中文简洁回答用户的问题。直接给答案，不要输出思考过程。';
 const msgs=document.getElementById('msgs');
 function addMsg(text,cls){ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=text; msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; return d; }
 let aiBusy=false;
 async function askAI(){
-  const input=document.getElementById('aiInput'); const q=input.value.trim(); if(!q||aiBusy) return;
+  const input=document.getElementById('aiInput'), q=input.value.trim();
+  if(!q||aiBusy) return;
   input.value=''; addMsg(q,'user'); aiBusy=true;
   const thinking=addMsg('思考中…','sys');
   try{
-    const prompt='你是「XS 空间站」里的通用智能助手。请忽略任何法考教师角色设定，作为友好的通用助理，用简体中文简洁回答用户的问题。\n用户：'+q;
-    const res=await fetch(AI_BASE+'/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,followup:''})});
-    const data=await res.json().catch(()=>({error:'返回非 JSON'}));
+    const r=await fetchT(AI_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+AI_TOKEN},
+      body:JSON.stringify({messages:[{role:'system',content:AI_SYS},{role:'user',content:q}],max_tokens:800,temperature:0.5})},45000);
+    const data=await r.json().catch(()=>null);
+    const ans=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
+    if(!r.ok||!ans) throw new Error((data&&data.error)||('HTTP '+r.status));
+    thinking.remove(); addMsg(ans,'bot');
+  }catch(e){
     thinking.remove();
-    if(!res.ok||data.error){ addMsg('⚠️ '+(data.error||('HTTP '+res.status)),'sys'); }
-    else{ addMsg(data.content||'(空回复)','bot'); }
-  }catch(e){ thinking.remove(); addMsg('⚠️ 连接 AI 失败：'+e.message,'sys'); }
-  finally{ aiBusy=false; }
+    addMsg('⚠️ AI 暂时不可用：'+(e.name==='AbortError'?'请求超时':e.message)+'。其余功能不受影响，可稍后重试。','sys');
+  }finally{ aiBusy=false; }
 }
 document.getElementById('aiSend').addEventListener('click',askAI);
 document.getElementById('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); askAI(); } });
+
+loadNotes(); loadMessages(); trackVisit(); mountCloudButton();
 
 /* ============ 游戏 ============ */
 const overlay=document.getElementById('overlay'), gameMount=document.getElementById('gameMount'), gameBar=document.getElementById('gameBar'), gameTitle=document.getElementById('gameTitle');

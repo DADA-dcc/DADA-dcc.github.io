@@ -8,7 +8,14 @@
 <meta property="og:title" content="DADA-dcc · 开发者主页" />
 <meta property="og:description" content="Web 应用 · PWA · Serverless · 图形与游戏原型" />
 <meta property="og:type" content="website" />
-<link rel="icon" href="data:," />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+<link rel="canonical" href="https://xs06.is-a.dev/" />
+<meta name="theme-color" content="#070a12" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<meta property="og:url" content="https://xs06.is-a.dev/" />
+<meta property="og:site_name" content="DADA-dcc Developer" />
+<meta name="twitter:card" content="summary" />
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"ProfilePage","name":"DADA-dcc · 开发者主页","url":"https://xs06.is-a.dev/","description":"独立开发者 DADA-dcc 的 Web 应用、PWA、Serverless 与图形程序项目档案。","author":{"@type":"Person","name":"DADA-dcc","url":"https://github.com/DADA-dcc"}}</script>
 <style>
   :root{
     --bg:#070a12; --panel:#0e1420; --panel2:#121a29; --line:#1e2a3d;
@@ -27,6 +34,10 @@
   }
   a{color:var(--cyan);text-decoration:none}
   a:hover{text-decoration:underline}
+  .skip{position:absolute;left:-9999px;top:8px;z-index:99;padding:8px 14px;background:var(--panel2);border:1px solid var(--cyan);border-radius:8px}
+  .skip:focus{left:12px}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
   .wrap{max-width:960px;margin:0 auto;padding:48px 22px 72px}
 
   /* header */
@@ -93,6 +104,7 @@
 </style>
 </head>
 <body>
+<a class="skip" href="#projects">跳到主内容</a>
 <div class="wrap">
 
   <header>
@@ -110,7 +122,7 @@
     <p>这个页面是我的<strong>项目与技术档案</strong>，下面是实际在运行的东西 —— 源码、线上地址、所用技术栈都可查。</p>
   </div>
 
-  <h2 class="sec">Projects · 项目</h2>
+  <h2 class="sec" id="projects">Projects · 项目</h2>
   <div class="grid two">
 
     <article class="proj">
@@ -144,10 +156,10 @@
 
     <article class="proj">
       <h3>AI 网关 Worker <span class="tag">Serverless</span></h3>
-      <p>自建的无服务器 AI 后端：统一 <code>/api/ai</code> 与 <code>/api/grade</code> 路由，转发到上游模型，做 CORS、限流与请求体约束，被法考 App 与空间站共用。</p>
+      <p>自建的无服务器 AI 网关：以 OpenAI 兼容的 <code>/v1/chat/completions</code> 对外提供模型转发，绑定自定义域名保证国内可达，被法考 App 与空间站共用。</p>
       <div class="stack"><span>Cloudflare Workers</span><span>REST</span><span>LLM API</span></div>
       <div class="acts">
-        <a href="https://round-unit-93bd.xsb13258256719.workers.dev/" target="_blank" rel="noopener">健康检查 →</a>
+        <a href="https://ai.xs06.de5.net/" target="_blank" rel="noopener">网关地址 →</a>
       </div>
     </article>
 
