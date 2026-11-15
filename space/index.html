@@ -3281,8 +3281,8 @@ function startChess(){
     else { idx++; if(idx>=cur.count){ cur=null; busy=false; goIdle(); return; } }
     render();
   }
-  function play(a){ if(!a || !a.count) return; cur=a; idx=0; dir=1; busy=(a.mode!=='loop'); render(); }
-  function goIdle(){ if(!IDLE.length) return; const a=IDLE[Math.floor(Math.random()*IDLE.length)]; cur=a; idx=0; dir=1; busy=false; render(); }
+  function play(a){ if(!a || !a.count) return; preloadAnim(a); cur=a; idx=0; dir=1; busy=(a.mode!=='loop'); render(); }
+  function goIdle(){ if(!IDLE.length) return; const a=IDLE[Math.floor(Math.random()*IDLE.length)]; preloadAnim(a); cur=a; idx=0; dir=1; busy=false; render(); }
   function playRandomOnce(){ const pool=ONCE.length?ONCE:ANIM_ARR; if(!pool.length) return; const a=pool[Math.floor(Math.random()*pool.length)]; preloadAnim(a); play(a); }
   function playRandomReact(){ const pool=REACT.length?REACT:(ONCE.length?ONCE:ANIM_ARR); if(!pool.length) return; const a=pool[Math.floor(Math.random()*pool.length)]; preloadAnim(a); play(a); }
   function playSleep(){ const s=byName('原地小憩沉眠')||byName('深度睡眠')||byName('打瞌睡被惊醒'); if(s) play(s); }
@@ -3364,7 +3364,9 @@ function startChess(){
       ONCE=ANIM_ARR.filter(a=>a.mode==='once');
       REACT=ANIM_ARR.filter(a=>a.name.indexOf('点击回应')===0);
       DRAG_ID=(byName('被鼠标拖拽悬空反馈')||{}).id||null;
-      IDLE.slice(0,10).forEach(preloadAnim);
+      // 审计优化：首屏只预加载 1 个待机动画，其余帧由 play()/goIdle() 按需加载，
+      // 避免冷启动一次性并发 180+ 个 webp 请求（每个动画约 18 帧）。
+      if(IDLE.length) preloadAnim(IDLE[0]);
       if(!IDLE.length && ANIM_ARR.length) IDLE=[ANIM_ARR[0]];
       goIdle();
     }catch(e){ console.warn('pet manifest load failed', e); }
