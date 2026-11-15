@@ -1,0 +1,5 @@
+# ── 第四轮清理 ──
+# pikafish.wasm 与 pikafish-single.wasm 内容完全一致（MD5 9627cd0d…），
+# 且 worker 的 locateFile 已把 Emscripten 默认名重定向到 pikafish-single.wasm，
+# 前者从未被加载。仅保留在本地，不再发布到公开仓库。
+/space/vendor/pikafish/pikafish.wasm
