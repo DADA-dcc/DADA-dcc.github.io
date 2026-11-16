@@ -3417,6 +3417,14 @@ setTimeout(()=>{ try{ loadFiles(); }catch(e){ console.warn('loadFiles',e); } }, 
       localStorage.setItem(KEY, JSON.stringify(arr));
       location.reload();
     }
+    /* 以 notes.json 为准：移除本地多余（非 notes.json 内的）旧条目 */
+    var remoteIds={}; remote.forEach(function(n){ if(n&&n.id) remoteIds[String(n.id)]=1; });
+    var kept=arr.filter(function(n){ return n&&n.id&&remoteIds[String(n.id)]; });
+    var keptStr=JSON.stringify(kept);
+    if(kept.length!==arr.length && keptStr!==localStorage.getItem(KEY)){
+      localStorage.setItem(KEY, keptStr);
+      location.reload();
+    }
   }catch(e){}
 })();
 </script>
