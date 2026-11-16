@@ -3390,5 +3390,33 @@ setTimeout(()=>{ try{ loadFiles(); }catch(e){ console.warn('loadFiles',e); } }, 
   btn.addEventListener('click',()=>scrollTo({top:0,behavior:'smooth'}));
 })();
 </script>
+<script>
+/* 同源静态云：从 notes.json 合并资料库（跨设备只读同步） */
+(async function(){
+  try{
+    var KEY='xs_space_notes_v1';
+    var res=await fetch('notes.json?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) return;
+    var remote=await res.json();
+    if(!Array.isArray(remote)) return;
+    var arr=[]; try{ arr=JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ arr=[]; }
+    if(!Array.isArray(arr)) arr=[];
+    var ids={}, titles={};
+    arr.forEach(function(n){ if(n){ ids[String(n.id)]=1; if(n.title) titles[String(n.title)]=1; } });
+    var added=0;
+    remote.forEach(function(n){
+      if(!n) return;
+      if(ids[String(n.id)]) return;
+      if(n.title && titles[String(n.title)]) return;
+      arr.push(n); ids[String(n.id)]=1; if(n.title) titles[String(n.title)]=1; added++;
+    });
+    if(added>0){
+      arr.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+      localStorage.setItem(KEY, JSON.stringify(arr));
+      location.reload();
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
