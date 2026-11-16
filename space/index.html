@@ -3401,16 +3401,18 @@ setTimeout(()=>{ try{ loadFiles(); }catch(e){ console.warn('loadFiles',e); } }, 
     if(!Array.isArray(remote)) return;
     var arr=[]; try{ arr=JSON.parse(localStorage.getItem(KEY)||'[]'); }catch(e){ arr=[]; }
     if(!Array.isArray(arr)) arr=[];
-    var ids={}, titles={};
-    arr.forEach(function(n){ if(n){ ids[String(n.id)]=1; if(n.title) titles[String(n.title)]=1; } });
-    var added=0;
+    var byId={};
+    arr.forEach(function(n){ if(n&&n.id) byId[String(n.id)]=n; });
+    var changed=0;
     remote.forEach(function(n){
-      if(!n) return;
-      if(ids[String(n.id)]) return;
-      if(n.title && titles[String(n.title)]) return;
-      arr.push(n); ids[String(n.id)]=1; if(n.title) titles[String(n.title)]=1; added++;
+      if(!n||!n.id) return;
+      var k=String(n.id);
+      if(byId[k]){
+        var o=byId[k];
+        if(o.title!==n.title||o.body!==n.body||o.cat!==n.cat||o.ts!==n.ts){ o.title=n.title;o.body=n.body;o.cat=n.cat;o.ts=n.ts; changed++; }
+      } else { arr.push(n); byId[k]=n; changed++; }
     });
-    if(added>0){
+    if(changed>0){
       arr.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
       localStorage.setItem(KEY, JSON.stringify(arr));
       location.reload();
