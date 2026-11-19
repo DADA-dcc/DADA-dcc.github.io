@@ -1,0 +1,1370 @@
+
+/* ══════════════════════════════════════════════════════════════════
+   XS 空间站 · 深空甲板 / Deep-Space Deck
+   ──────────────────────────────────────────────────────────────────
+   设计语言借自 awesome-design-md 里的线性/精密派系：
+     · Linear  —— 深度只来自「表面阶梯 + 1px 发丝线」，拒绝投影与雾气渐变
+     · Raycast —— 单一强调色纪律；饱和色只进插画，不进壳层
+     · Vercel  —— 内嵌 0 0 0 .5px 发丝环，让卡片边缘永远锋利
+     · Warp    —— 显示级字重 400/600 + 负字距；等宽只用于技术信息
+     · Cursor  —— 全系统只有发丝级高度，无 elevation 分层
+   本页三条自定规矩：
+     1. 一支青作为动作色；紫只做环境光；金只做数字。
+     2. 深度靠层级；模糊只给「液态玻璃」——封面玻璃层 + 模态遮罩，共 2 处，多一处都不行。
+     3. 半径、间距、字阶各一套阶梯，不许临时数值。
+   两套动态系统（都吃 prefers-reduced-motion）：
+      · 流动粒子 —— 星野之上叠一层向上流动的微粒 + 稀疏抛体弧线（Canvas #flow）
+      · 液态玻璃封面 —— 漂移网格渐变 + metaball 液态团 + 磨砂玻璃 + 掠过高光（.cover）
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── 表面阶梯 ── */
+  --canvas: #05070f;
+  --s1: #0a0e1a;
+  --s2: #0e1424;
+  --s3: #131b2e;
+  --s4: #182238;
+
+  /* ── 发丝线 ── */
+  --hair: rgba(120, 160, 255, 0.13);
+  --hair-strong: rgba(120, 160, 255, 0.24);
+  --hair-accent: rgba(73, 230, 255, 0.42);
+
+  /* ── 色 ── */
+  --cyan: #49e6ff;
+  --cyan-soft: rgba(73, 230, 255, 0.13);
+  --violet: #a06bff;
+  --gold: #f3c969;
+
+  --txt: #dbe6ff;
+  --txt-strong: #f2f7ff;
+  --muted: #8fa2c7;
+  --dim: #63748f;
+  --ok: #37e0a0;
+  --bad: #ff6b8a;
+
+  /* ── 高度：内嵌发丝环 + 极小偏移，永不出现大柔光 ── */
+  --ring: 0 0 0 0.5px var(--hair-strong);
+  --lift-1: var(--ring), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --lift-2: var(--ring), 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.75);
+
+  /* ── 半径阶梯 ── */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 22px;
+  --r-full: 999px;
+
+  /* ── 间距阶梯（4 基） ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ── 字族 ── */
+  --font: -apple-system, "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: -apple-system, "Segoe UI Variable Display", "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", "SFMono-Regular",
+    Consolas, monospace;
+
+  /* ── 节奏 ── */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --t-fast: 120ms;
+  --t: 160ms;
+  --t-slow: 260ms;
+
+  /* ── 液态玻璃：只给封面与模态，别处不许用 ── */
+  --glass-blur: 6px;
+  --glass-sat: 172%;
+  /* 玻璃的填充必须极淡：下面是会动的液态球，白色一重就把球洗白了 */
+  --glass-fill: linear-gradient(
+    148deg,
+    rgba(255, 255, 255, 0.085) 0%,
+    rgba(255, 255, 255, 0.026) 34%,
+    rgba(255, 255, 255, 0.01) 66%,
+    rgba(255, 255, 255, 0.055) 100%
+  );
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.045),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.055);
+  --sheen: linear-gradient(
+    105deg,
+    transparent 16%,
+    rgba(255, 255, 255, 0.17) 41%,
+    rgba(255, 255, 255, 0.05) 52%,
+    transparent 70%
+  );
+}
+
+/* ═══════════════ 基础 ═══════════════ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font: 400 14.5px/1.68 var(--font);
+  letter-spacing: 0.002em;
+  color: var(--txt);
+  background: var(--canvas);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+/* 流动粒子：星野之上再叠一层，同层但后画，只加光不挡路 */
+#flow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+/* 环境光：紫在这里，且只在这里 */
+.glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 44% at 14% 6%, rgba(91, 73, 255, 0.16), transparent 62%),
+    radial-gradient(48% 38% at 88% 18%, rgba(73, 230, 255, 0.10), transparent 62%),
+    radial-gradient(66% 56% at 50% 118%, rgba(160, 107, 255, 0.11), transparent 64%);
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-10);
+}
+
+::selection {
+  color: var(--txt-strong);
+  background: var(--cyan-soft);
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 160, 255, 0.2);
+  border: 2px solid transparent;
+  border-radius: var(--r-full);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(73, 230, 255, 0.36);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ═══════════════ 字阶 ═══════════════ */
+
+.eyebrow {
+  margin: 0;
+  font: 500 10.5px/1.4 var(--mono);
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.display {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.3vw, 32px);
+  font-weight: 650;
+  line-height: 1.16;
+  letter-spacing: -0.032em;
+  color: var(--txt-strong);
+}
+
+.lead {
+  margin: var(--sp-2) 0 0;
+  max-width: 640px;
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════ 页头 ═══════════════ */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--hair);
+}
+
+.logo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 15px/1 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+  background: var(--s2);
+  border: 1px solid var(--hair-strong);
+  box-shadow: inset 0 0 0 0.5px rgba(73, 230, 255, 0.16);
+}
+
+.logo::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--r-xl);
+  border: 1px solid rgba(73, 230, 255, 0.22);
+  animation: breathe 4.4s var(--ease) infinite;
+  pointer-events: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.brand {
+  min-width: 0;
+}
+
+/* 品牌字是全页唯一的多色渐变 */
+.brand h1 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  background: linear-gradient(96deg, #e8f0ff 0%, #49e6ff 62%, #9fb6ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand .tagline {
+  margin: 1px 0 0;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.clock {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s1);
+  font: 500 13px/1.3 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+/* ═══════════════ 导航：分段胶囊 ═══════════════ */
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  margin-bottom: var(--sp-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: var(--s1);
+  box-shadow: var(--ring);
+}
+
+nav button {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-full);
+  background: transparent;
+  color: var(--muted);
+  transition: color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+nav button .ic {
+  font-size: 14px;
+  line-height: 1;
+  filter: saturate(0.85);
+}
+
+nav button:hover {
+  color: var(--txt);
+  background: var(--s2);
+}
+
+nav button.active {
+  color: var(--cyan);
+  background: var(--s3);
+  border-color: var(--hair-accent);
+  box-shadow: inset 0 0 0 0.5px rgba(73, 230, 255, 0.18);
+}
+
+/* ═══════════════ 视图切换 ═══════════════ */
+
+.view {
+  display: none;
+}
+
+.view.active {
+  display: block;
+  animation: rise var(--t-slow) var(--ease);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ═══════════════ 卡片：哑光面板 + 顶边高光 ═══════════════ */
+
+.card {
+  position: relative;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-xl);
+  background: var(--s1);
+  box-shadow: var(--lift-1);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 26%,
+    rgba(255, 255, 255, 0.05) 72%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.card + .card {
+  margin-top: var(--sp-4);
+}
+
+.grid {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.g3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.g2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 小游戏：自适应列数，窄屏自然回落到 3 / 2 / 1 */
+.games {
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* 行内的控件按内容定宽，只有显式 flex:1 的才撑满 */
+.row > .field {
+  width: auto;
+  flex: 0 1 auto;
+}
+
+/* ═══════════════ 章节标题：右侧一条渐隐发丝 ═══════════════ */
+
+h2.sec {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font);
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  color: var(--txt-strong);
+}
+
+h2.sec::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: 24px;
+  background: linear-gradient(90deg, var(--hair-strong), transparent);
+}
+
+/* ═══════════════ 驾驶舱 ═══════════════ */
+
+/* ═══════════════ 驾驶舱 · 液态玻璃封面 ═══════════════ */
+
+.cover {
+  position: relative;
+  isolation: isolate;
+  padding: var(--sp-4);
+  overflow: hidden;
+  background: var(--canvas);
+  border-color: rgba(120, 160, 255, 0.18);
+}
+
+/* 液态层：漂移网格渐变 + metaball 液团 + 高光，全在 canvas 里，CSS 只管叠放 */
+.cover-liquid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* 玻璃「表面」的水珠层：是玻璃面板的子元素，所以不受面板自己的 backdrop blur 影响
+   （backdrop-filter 只糊它背后的东西，不糊它的子节点），棱线因此是脆的。
+   一层软折射在玻璃后面 + 一层脆水珠在玻璃表面 = 液态玻璃。 */
+.cover-glass > .cover-drops {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* 压暗文字区，保证玻璃上的字永远够对比：左侧一道斜向暗幕 + 底部收边 */
+.cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      100deg,
+      rgba(4, 6, 13, 0.62) 0%,
+      rgba(4, 6, 13, 0.3) 42%,
+      rgba(4, 6, 13, 0.06) 70%,
+      transparent 100%
+    ),
+    radial-gradient(
+      130% 120% at 50% 118%,
+      transparent 46%,
+      rgba(4, 6, 13, 0.5) 100%
+    );
+}
+
+/* 玻璃面板：全站唯一一处（除模态遮罩）允许 blur 的地方。
+   边框不用纯色，用 padding-box / border-box 双层背景做出「彩色玻璃棱边」：
+   左上冷白 → 中段青 → 右下紫，这一圈色边就是液态玻璃的签名。 */
+.cover-glass {
+  position: relative;
+  z-index: 2;
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  background:
+    var(--glass-fill) padding-box,
+    linear-gradient(
+        152deg,
+        rgba(255, 255, 255, 0.72) 0%,
+        rgba(73, 230, 255, 0.4) 18%,
+        rgba(255, 255, 255, 0.09) 44%,
+        rgba(160, 107, 255, 0.36) 74%,
+        rgba(255, 255, 255, 0.58) 100%
+      )
+      border-box;
+  box-shadow: var(--glass-edge), var(--lift-1);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  overflow: hidden;
+}
+
+/* 掠过高光：玻璃上那道斜着扫过的亮带 */
+.cover-glass::before {
+  content: "";
+  position: absolute;
+  inset: -60% -40%;
+  z-index: 1;
+  background: var(--sheen);
+  pointer-events: none;
+  animation: sheen 9.5s var(--ease) infinite;
+  will-change: transform, opacity;
+}
+
+/* 玻璃里的内容永远压在高光之上，字不能被亮带盖住 */
+.cover-glass > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes sheen {
+  0% {
+    transform: translate3d(-58%, 0, 0);
+    opacity: 0;
+  }
+  9% {
+    opacity: 0.85;
+  }
+  52% {
+    transform: translate3d(52%, 0, 0);
+    opacity: 0.5;
+  }
+  60%,
+  100% {
+    transform: translate3d(52%, 0, 0);
+    opacity: 0;
+  }
+}
+
+/* 玻璃顶边的镜面亮线 */
+.cover-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  z-index: 3;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.52) 22%,
+    rgba(255, 255, 255, 0.16) 68%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.hero .display {
+  margin-top: var(--sp-3);
+}
+
+.hero .eyebrow {
+  color: var(--cyan);
+  opacity: 0.72;
+}
+
+.stat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: var(--s2);
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip b {
+  font: 600 13.5px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.quick button {
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  padding: var(--sp-4);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  color: var(--txt);
+  transition: border-color var(--t) var(--ease),
+    background-color var(--t) var(--ease), transform var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.quick button:hover {
+  background: var(--s2);
+  border-color: var(--hair-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
+}
+
+.quick .qic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: var(--sp-2);
+  font-size: 16px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s2);
+}
+
+.quick .qt {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.quick .qd {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+/* ═══════════════ 小游戏 ═══════════════ */
+
+.game-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  box-shadow: var(--lift-1);
+  transition: border-color var(--t) var(--ease), transform var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.game-card:hover {
+  border-color: var(--hair-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--lift-2);
+}
+
+.game-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 104px;
+  font-size: 38px;
+  background:
+    radial-gradient(90% 120% at 50% 120%, rgba(73, 230, 255, 0.08), transparent 68%),
+    var(--s2);
+  border-bottom: 1px solid var(--hair);
+}
+
+.game-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+}
+
+.game-body h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  color: var(--txt-strong);
+}
+
+.game-body p {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 12px;
+  line-height: 1.62;
+  color: var(--dim);
+}
+
+.game-body .row {
+  margin-top: var(--sp-1);
+}
+
+/* ═══════════════ 按钮 ═══════════════ */
+
+.btn {
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--cyan);
+  color: #04121a;
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.btn:hover {
+  background: #7bd9ff;
+}
+
+.btn:active {
+  background: var(--cyan-dim, #2aa8bd);
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--hair);
+}
+
+.btn.ghost:hover {
+  color: var(--txt);
+  border-color: var(--hair-strong);
+  background: var(--s2);
+}
+
+/* ═══════════════ 表单 ═══════════════ */
+
+.field {
+  font-family: var(--font);
+  font-size: 13.5px;
+  color: var(--txt);
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+  outline: none;
+  transition: border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.field::placeholder {
+  color: var(--dim);
+}
+
+.field:hover {
+  border-color: var(--hair-strong);
+}
+
+.field:focus {
+  border-color: var(--hair-accent);
+  box-shadow: 0 0 0 3px rgba(73, 230, 255, 0.12);
+}
+
+textarea.field {
+  min-height: 68px;
+  resize: vertical;
+  line-height: 1.65;
+}
+
+select.field {
+  cursor: pointer;
+  padding-right: 30px;
+}
+
+.note-form {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.hint {
+  align-self: center;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.hint b {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ═══════════════ 资料库 / 留言列表 ═══════════════ */
+
+.note-list {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.note-item {
+  position: relative;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+  transition: border-color var(--t-fast) var(--ease),
+    background-color var(--t-fast) var(--ease);
+}
+
+.note-item:hover {
+  border-color: var(--hair-strong);
+  background: var(--s2);
+}
+
+.note-item h4 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 4px;
+  padding-right: 26px;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: var(--txt-strong);
+}
+
+.note-item .type {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border: 1px solid var(--hair-accent);
+  border-radius: var(--r-full);
+  background: var(--cyan-soft);
+  font: 500 10px/1.6 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--cyan);
+}
+
+.note-item p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.66;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-item .del {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  font-size: 13px;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.note-item .del:hover {
+  color: var(--bad);
+  border-color: var(--hair);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s1);
+  font-size: 13px;
+}
+
+.file-item a {
+  color: var(--cyan);
+  font-weight: 600;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+}
+
+.file-item > .small.muted {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+/* ═══════════════ AI 助手 ═══════════════ */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: min(52vh, 440px);
+}
+
+.msgs {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+  background: var(--canvas);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.03);
+}
+
+.msg {
+  max-width: 82%;
+  padding: 9px 13px;
+  border-radius: var(--r-lg);
+  font-size: 13.5px;
+  line-height: 1.66;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg.user {
+  align-self: flex-end;
+  border: 1px solid var(--hair-accent);
+  background: var(--s3);
+  color: var(--txt-strong);
+  border-bottom-right-radius: var(--r-xs);
+}
+
+.msg.bot {
+  align-self: flex-start;
+  border: 1px solid var(--hair);
+  background: var(--s1);
+  border-bottom-left-radius: var(--r-xs);
+}
+
+.msg.sys {
+  align-self: center;
+  max-width: 90%;
+  padding: 3px 10px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-full);
+  background: transparent;
+  font: 500 11px/1.6 var(--mono);
+  letter-spacing: 0.03em;
+  color: var(--dim);
+}
+
+.chat-input {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair);
+}
+
+.chat-input textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  resize: none;
+}
+
+.kbd {
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.02em;
+  padding: 2px 5px;
+  border: 1px solid var(--hair-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-xs);
+  background: var(--s2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ═══════════════ 页脚 ═══════════════ */
+
+footer {
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hair);
+  text-align: center;
+  font: 500 11px/1.7 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+/* ═══════════════ 游戏模态 ═══════════════ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  background: rgba(4, 6, 13, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.overlay.show {
+  display: flex;
+}
+
+.modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow: auto;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--r-xl);
+  background: var(--s2);
+  box-shadow: var(--lift-2);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--hair);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--txt-strong);
+}
+
+.x {
+  cursor: pointer;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  transition: color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.x:hover {
+  color: var(--txt);
+  border-color: var(--hair-strong);
+}
+
+canvas.game {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: #060a16;
+}
+
+.game-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair);
+  flex-wrap: wrap;
+}
+
+.scorebadge {
+  font: 600 13px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  color: var(--gold);
+}
+
+/* ═══════════════ 内嵌小游戏 ═══════════════ */
+
+.g2048 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(340px, 86vw);
+  margin: 0 auto;
+  padding: 8px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--canvas);
+}
+
+.tile {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.045);
+  font: 700 clamp(14px, 4vw, 22px) / 1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+  transition: background-color 120ms var(--ease), color 120ms var(--ease);
+}
+
+.t2 {
+  background: #17203a;
+}
+.t4 {
+  background: #1c2a4d;
+}
+.t8 {
+  background: #244070;
+}
+.t16 {
+  background: #2d5490;
+}
+.t32 {
+  background: #3568ae;
+}
+.t64 {
+  background: #49e6ff;
+  color: #04121a;
+}
+.t128 {
+  background: #7bd9ff;
+  color: #04121a;
+}
+.t256 {
+  background: #a06bff;
+  color: #fff;
+}
+.t512 {
+  background: #b98bff;
+  color: #fff;
+}
+.t1024 {
+  background: #f3c969;
+  color: #1a1400;
+}
+.t2048 {
+  background: linear-gradient(135deg, #f3c969, #ffe8a8);
+  color: #1a1400;
+}
+
+.memgrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: min(360px, 88vw);
+  margin: 0 auto;
+}
+
+.mcard {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-md);
+  background: var(--s3);
+  font-size: 25px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--t) var(--ease),
+    border-color var(--t) var(--ease), transform var(--t) var(--ease);
+}
+
+.mcard:hover {
+  border-color: var(--hair-strong);
+  transform: translateY(-1px);
+}
+
+.mcard.flip {
+  background: var(--cyan-soft);
+  border-color: var(--hair-accent);
+}
+
+.mcard.done {
+  background: rgba(55, 224, 160, 0.14);
+  border-color: rgba(55, 224, 160, 0.45);
+  cursor: default;
+  transform: none;
+}
+
+/* ═══════════════ 响应式 ═══════════════ */
+
+@media (max-width: 900px) {
+  .quick {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .wrap {
+    padding: var(--sp-4) var(--sp-3) var(--sp-8);
+  }
+  .g3,
+  .g2 {
+    grid-template-columns: 1fr;
+  }
+  .quick {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cover {
+    padding: var(--sp-3);
+  }
+  /* 窄屏字会铺满整块，左侧暗幕要更狠，否则亮团直接压在正文上 */
+  .cover::after {
+    background:
+      linear-gradient(
+        118deg,
+        rgba(4, 6, 13, 0.72) 0%,
+        rgba(4, 6, 13, 0.5) 58%,
+        rgba(4, 6, 13, 0.18) 100%
+      ),
+      radial-gradient(
+        140% 130% at 50% 120%,
+        transparent 40%,
+        rgba(4, 6, 13, 0.56) 100%
+      );
+  }
+  .cover-glass {
+    padding: var(--sp-4) var(--sp-4) var(--sp-4);
+    border-radius: var(--r-md);
+  }
+  nav {
+    border-radius: var(--r-lg);
+  }
+  .brand h1 {
+    font-size: 17px;
+  }
+  .clock {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ═══════════════ 减弱动态 ═══════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  /* 玻璃高光直接停在中间那一格，别闪 */
+  .cover-glass::before {
+    animation: none !important;
+    opacity: 0.28;
+    transform: translate3d(0, 0, 0);
+  }
+  /* 液态层退化为一张静态渐变（由 canvas 首帧绘制），这里只把动效压掉 */
+  #flow {
+    display: none;
+  }
+}
