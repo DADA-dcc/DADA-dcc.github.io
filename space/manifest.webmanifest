@@ -1,0 +1,25 @@
+{
+  "name": "XS 空间站 · 开发者个人空间",
+  "short_name": "XS空间站",
+  "description": "小游戏合集、资料库、留言板与 AI 助手，纯前端单页应用。",
+  "start_url": "./space/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05070f",
+  "theme_color": "#05070f",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

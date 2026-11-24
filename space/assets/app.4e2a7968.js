@@ -790,12 +790,17 @@ function esc(s){ return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 function readJSON(k,fb){ try{ const v=JSON.parse(localStorage.getItem(k)); return (v===null||v===undefined)?fb:v; }catch(e){ return fb; } }
 function writeJSON(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
 function uid(){ return 'l-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7); }
+const DEFAULT_CLOUD = {
+  url: 'https://sync.xs06.de5.net',
+  key: 'xs-sync-2026'
+};
 function readCloud(){
+  // 云同步默认开启：用户配置过则用用户配置，否则用内置默认后端
   try{
     const c=JSON.parse(localStorage.getItem(LS.cloud)||'null');
     if(c && /^https:\/\//.test(c.url||'') && c.key) return {base:String(c.url).replace(/\/+$/,''), key:String(c.key)};
   }catch(e){}
-  return null;
+  return {base:String(DEFAULT_CLOUD.url).replace(/\/+$/,''), key:String(DEFAULT_CLOUD.key)};
 }
 let CLOUD = readCloud();
 function cloudTable(t){ return CLOUD ? CLOUD.base+'/rest/v1/'+t : null; }
@@ -816,11 +821,11 @@ function mountCloudButton(){
   const host=document.getElementById('noteHint'); if(!host||document.getElementById('cloudBtn')) return;
   const b=document.createElement('button'); b.id='cloudBtn'; b.type='button';
   b.className='btn ghost'; b.style.cssText='margin-left:10px;padding:3px 10px;font-size:11px';
-  b.textContent=CLOUD?'云同步：开':'云同步：关';
+  b.textContent='云同步：开';
   b.setAttribute('aria-label','配置可选的跨设备云同步');
   b.addEventListener('click',()=>{
     const cur=localStorage.getItem(LS.cloud)||'';
-    const v=prompt('可选：填写云同步配置 JSON（留空关闭云同步）。\n格式：{"url":"https://可达域名","key":"anon key"}',cur);
+    const v=prompt('可选：填写云同步配置 JSON（留空恢复默认后端）。\n格式：{"url":"https://可达域名","key":"anon key"}',cur);
     if(v===null) return;
     if(!v.trim()){ localStorage.removeItem(LS.cloud); }
     else {
@@ -1785,3 +1790,14 @@ window.__syncNotes = async function(){
 };
 // 首屏若直接带 #notes 进来，补一次触发
 if ((location.hash || "").replace("#", "") === "notes") { try { window.__syncNotes(); } catch (e) {} }
+
+/* ============ PWA：manifest 注册（添加主屏/独立窗口）============ */
+(function(){
+  try{
+    if(!document.querySelector('link[rel="manifest"]')){
+      var l=document.createElement('link');
+      l.rel='manifest'; l.href='./manifest.webmanifest';
+      document.head.appendChild(l);
+    }
+  }catch(e){}
+})();
