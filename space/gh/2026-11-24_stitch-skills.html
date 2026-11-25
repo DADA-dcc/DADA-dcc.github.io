@@ -1,0 +1,160 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2026-11-24 stitch-skills 精讲</title><style>body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.8 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+article{max-width:900px;margin:0 auto;padding:40px 28px 90px;background:#fff}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em;line-height:1.35}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.9em;color:#0f172a}
+h3{font-size:1.15em;margin-top:1.4em;color:#1e293b}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:13.5px}
+th,td{border:1px solid #dcdfe4;padding:8px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+code{background:#eef1f5;padding:.15em .4em;border-radius:4px;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.5}
+pre code{background:none;color:inherit}
+blockquote{border-left:4px solid #94a3b8;background:#f8fafc;margin:1em 0;padding:.6em 1em;color:#334155}
+strong{color:#0f172a}</style></head><body><article><h1>今日 GitHub 精讲：google-labs-code/stitch-skills</h1>
+<ul>
+<li>日期：2026-11-24</li>
+<li>链接：https://github.com/google-labs-code/stitch-skills</li>
+<li>Star：约 12,386（今日 +422，日榜第 11）</li>
+<li>语言：TypeScript（主体是 Markdown 技能包 + JSON 清单）</li>
+<li>为什么选它：它是<strong>"Agent 技能库 + 插件市场"的官方样板</strong>——直接对标你 DSH 里的"技能（skills）+ 插件（plugins）"体系，能拿来抄结构。</li>
+</ul>
+<blockquote>
+<p>一句话先说明它怎么优化你的 DSH 工作：<strong>它演示了"一套技能怎么打包成可被多个 AI 编码工具（Codex / Claude Code / Cursor / Gemini CLI）通用安装的插件"</strong>，正好是给 DSH 扩技能、做技能分发时能照抄的目录结构和清单格式。</p>
+</blockquote>
+<hr />
+<h2>1) 项目是什么 / 解决什么问题</h2>
+<p><strong>说白了就是：</strong> 一套"教 AI 画 UI 设计稿、并把设计稿变成前端代码"的技能包，只不过它是用"技能（Skill）"这种文件形式组织的。</p>
+<p>它是 Google Labs 给自家的 <strong>Stitch</strong>（一个 AI 生成 UI 界面的工具）配的"操作手册集合"。AI 编码助手装上这些手册后，就知道该怎么一步步调用 Stitch 的接口去：把代码变成设计稿、用一句话生成界面、改界面、导出设计规范、再把设计稿转成 React / React Native / shadcn-ui 组件。</p>
+<ul>
+<li><strong>解决什么问题</strong>：AI 助手"会写代码但不会用 Stitch"——它不知道 Stitch 有哪些能力、先后顺序是什么。这套技能就是"操作说明书 + 提示词模板"。</li>
+<li><strong>规模</strong>：3 个插件（design / build / utilities），共 <strong>16 个技能</strong>。</li>
+<li><strong>兼容</strong>：Codex、Claude Code、Cursor、Gemini CLI、Antigravity、OpenCode。</li>
+</ul>
+<hr />
+<h2>2) 整体架构与模块划分（文字架构图）</h2>
+<p><strong>说白了就是：</strong> 一个大盒子按"干什么"分三个抽屉，每个抽屉里放若干个"小册子（SKILL.md）"，外面再放一张"目录牌（marketplace.json）"告诉 AI 去哪找。</p>
+<pre><code>stitch-skills/
+├── .agents/plugins/marketplace.json     ← 目录牌：列出 3 个插件，告诉 Codex 怎么装
+├── plugins/
+│   ├── stitch-design/                   ← 抽屉①：设计（画稿）
+│   │   ├── plugin.json                  ← 这个抽屉的&quot;身份证&quot;（名字/版本/作者/关键词）
+│   │   ├── .codex-plugin/               ← Codex 专用的安装信息
+│   │   └── skills/
+│   │       ├── generate-design/SKILL.md     一句话生成/改界面
+│   │       ├── code-to-design/SKILL.md      代码→设计稿
+│   │       ├── manage-design-system/        设计系统（颜色/字体/圆角）
+│   │       ├── extract-design-md/           从源码抽出 DESIGN.md
+│   │       ├── extract-static-html/         抓取网页存成静态 HTML
+│   │       └── upload-to-stitch/            上传本地素材
+│   ├── stitch-build/                    ← 抽屉②：出码（设计→代码）
+│   │   └── skills/{react-components, react-native, remotion, shadcn-ui, react-vite-dashboard}
+│   └── stitch-utilities/                ← 抽屉③：杂务（提词/规范/循环）
+│       └── skills/{design-md, enhance-prompt, site-md, stitch-loop, taste-design}
+└── README.md / CONTRIBUTING.md / LICENSE / SECURITY.md
+</code></pre>
+<p><strong>关键设计</strong>：每个技能是<strong>一个文件夹 + 一个 SKILL.md</strong>；能力的"身份证"（plugin.json）和"目录牌"（marketplace.json）是分开的两层。</p>
+<hr />
+<h2>3) 核心机制与关键代码</h2>
+<h3>机制一：靠"清单文件"让不同 AI 工具都能装</h3>
+<p><strong>说白了就是：</strong> 同一个技能包，写一张"目录牌"，Codex 看这张牌就知道去哪拿；Claude Code / Cursor 用 <code>npx plugins add</code> 也能读同一张牌。</p>
+<p><code>.agents/plugins/marketplace.json</code>（节选，真实内容）：</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;stitch-skills&quot;,
+  &quot;plugins&quot;: [
+    { &quot;name&quot;: &quot;stitch-design&quot;,
+      &quot;source&quot;: { &quot;source&quot;: &quot;local&quot;, &quot;path&quot;: &quot;./plugins/stitch-design&quot; },
+      &quot;policy&quot;: { &quot;installation&quot;: &quot;AVAILABLE&quot;, &quot;authentication&quot;: &quot;ON_INSTALL&quot; },
+      &quot;category&quot;: &quot;Productivity&quot; }
+  ]
+}
+</code></pre>
+<blockquote>
+<p>这行在干嘛：<code>source.local.path</code> 指向插件文件夹；<code>authentication: ON_INSTALL</code> 表示"安装时再做登录认证"。</p>
+</blockquote>
+<h3>机制二：技能文件用 frontmatter 声明"我能用什么工具"</h3>
+<p><strong>说白了就是：</strong> 每个 SKILL.md 开头有一段"元信息"，写明这个技能允许 AI 用哪些工具（避免它乱调）。</p>
+<p><code>plugins/stitch-design/skills/generate-design/SKILL.md</code>（真实抬头）：</p>
+<pre><code class="language-yaml">---
+name: stitch::generate-design
+description: &gt;-
+  Generate new screens from text prompts or images, edit existing screens ...
+allowed-tools:
+  - &quot;stitch*:*&quot;     # 允许调用所有 Stitch MCP 工具
+  - &quot;Bash&quot;
+  - &quot;Read&quot;
+  - &quot;Write&quot;
+  - &quot;web_fetch&quot;
+---
+</code></pre>
+<blockquote>
+<p>这行在干嘛：<code>allowed-tools</code> 是"能力白名单"——只准用这些，别的一律不行。</p>
+</blockquote>
+<h3>机制三：生成前强制"先想清楚再动手"</h3>
+<p><code>generate-design</code> 里规定：<strong>调用任何生成工具之前，必须先跑一遍"提词增强流水线"</strong>：
+1. 先用 <code>list_projects</code> 找到项目 id（没有就 <code>create_project</code>）；
+2. 用 <code>list_design_systems</code> 看有没有设计系统——<strong>有，就绝不再在提示词里写颜色/字体</strong>（直接用项目级的）；没有，先交给 <code>manage-design-system</code> 技能建一个；
+3. 然后再把用户的模糊需求"翻译"成专业 UI/UX 措辞，才去生成。</p>
+<hr />
+<h2>4) 数据流 / 调用时序（一步步走一遍）</h2>
+<p>以"给我做一个约会 App 的浏览页"为例：</p>
+<ol>
+<li>用户对 AI 说需求 → AI 发现这属于 <code>generate-design</code> 技能的范围，自动加载这个 SKILL.md；</li>
+<li>AI 按说明书，先调 <code>stitch.list_projects</code> 拿项目列表 → 选定 <code>projectId</code>；</li>
+<li>调 <code>stitch.list_design_systems</code> → 看有没有现成设计令牌；</li>
+<li>走"提词增强"：把"做一个约会 App 浏览页"改写成带 UI/UX 术语的详细描述；</li>
+<li>调 <code>stitch.generate_screen_from_text</code>（带 projectId + 增强后的提示词）→ 得到设计稿；</li>
+<li>若要变体：调 <code>stitch.edit_screens</code> / 生成 3 个变体；</li>
+<li>想变成代码：切到 <code>stitch-build</code> 抽屉里的 <code>react-components</code> 技能，把设计稿转成 React 组件。</li>
+</ol>
+<p><strong>另一个亮点是 <code>stitch-loop</code>（接力棒循环）</strong>：
+- 每一轮从 <code>.stitch/next-prompt.md</code>（接力棒）读出"这一轮要建哪一页"；
+- 用 Stitch 生成这一页 → 整合进站点；
+- 再把"下一页要做什么"写回接力棒文件，交给下一轮。</p>
+<blockquote>
+<p>说白了：像接力赛传棒，AI 可以自己一棒一棒把整个网站建出来，不靠人盯着。</p>
+</blockquote>
+<hr />
+<h2>5) 关键难点与巧思（它比同类强在哪）</h2>
+<ol>
+<li><strong>一套内容、多工具通用</strong>：靠 <code>marketplace.json</code> + <code>plugin.json</code> 两层清单，Codex / Claude / Cursor / OpenCode 都能装，不用维护多套。</li>
+<li><strong>能力白名单（allowed-tools）</strong>：技能声明自己能碰哪些工具，降低"AI 乱调工具"的风险——这跟你 DSH 里给插件限定工具是一个思路。</li>
+<li><strong>"设计系统优先"的约束</strong>：一旦项目有设计令牌，就禁止在提示词里重复写颜色字体，<strong>保证界面风格统一</strong>。</li>
+<li><strong>接力棒循环（baton）</strong>：用三个小文件（next-prompt.md / DESIGN.md / SITE.md）把"多轮自动建站"变成可续跑的状态机。</li>
+<li><strong>命名空间</strong>：技能名用 <code>stitch::generate-design</code> 这种前缀，避免和别的技能撞名（但 OpenCode 要求 kebab-case，得改名——作者在 README 里专门提醒了）。</li>
+</ol>
+<hr />
+<h2>6) 如何自己复现 / 上手</h2>
+<p><strong>前提</strong>：得先有 <strong>Stitch MCP 服务器</strong>（Google 的远程 MCP 服务，需要按官方文档拿 MCP URL 和凭证）。</p>
+<ul>
+<li><strong>Codex</strong>（最省事，走插件市场）：
+  <code>bash
+  codex plugin marketplace add google-labs-code/stitch-skills --ref main \
+    --sparse .agents/plugins --sparse plugins/stitch-design --sparse plugins/stitch-build --sparse plugins/stitch-utilities</code></li>
+<li><strong>Claude Code / Cursor</strong>：
+  <code>bash
+  npx plugins add google-labs-code/stitch-skills --scope project --target claude-code
+  npx plugins add google-labs-code/stitch-skills --scope workspace --target cursor</code></li>
+<li><strong>只挑技能</strong>：<code>npx skills add google-labs-code/stitch-skills</code></li>
+<li><strong>最小示例</strong>：装好后直接对 AI 说"用 Stitch 生成一个设置页，套用我们的 DESIGN.md"，它会自动选到 <code>generate-design</code>。</li>
+</ul>
+<hr />
+<h2>7) 一句话总结</h2>
+<p><strong>它就是"把 AI 用 Stitch 画 UI、出代码"的完整操作手册，用"插件清单 + 带 allowed-tools 的 SKILL.md + 接力棒循环"三层结构打包，能被多种 AI 编码工具通用安装——是给 DSH 做技能包/插件分发时最好的抄结构样本。</strong></p>
+<p><strong>你可以怎么玩 / 试一下</strong>：不用真接 Stitch，先把它 <code>plugins/stitch-utilities/skills/stitch-loop/SKILL.md</code> 打开抄那段"接力棒"设计，套到你自己的长任务上——让 DSH 每轮读一个 <code>next-prompt.md</code> 干活、再写下一轮任务，长任务就能自动接着跑。</p>
+<hr />
+<h2>与你项目的适配度（固定段）</h2>
+<ul>
+<li><strong>对 DSH 的具体用法</strong>：</li>
+<li>抄它的<strong>目录结构</strong>：<code>plugins/&lt;插件&gt;/plugin.json</code> + <code>plugins/&lt;插件&gt;/skills/&lt;技能&gt;/SKILL.md</code>，正好和你 <code>~/.dsh/skills/</code> 的单层结构互补——可以升级成"技能包（bundle）"形态；</li>
+<li>抄 <strong>frontmatter 的 <code>allowed-tools</code></strong> 字段，给 DSH 技能加"能力白名单"（我们现在没有这个字段，加上能减少乱调工具）；</li>
+<li>抄 <strong><code>marketplace.json</code></strong> 清单格式，做你自己的"DSH 技能市场"；</li>
+<li>抄 <strong><code>stitch-loop</code> 接力棒</strong>，做一个 DSH 版的"长任务续跑"技能（配合你已有的定时任务/记忆库）。</li>
+<li><strong>不需要</strong>接 Stitch MCP（除非你真要用 Google Stitch 画 UI）。</li>
+<li><strong>适配度</strong>：<strong>高</strong> —— 纯本地可用、零外部依赖（只要你只用它的结构套路，不接 Stitch）。</li>
+<li><strong>上手成本</strong>：只读参考 ≈ 0 成本；真要接 Stitch 生成 UI，需要 Stitch MCP 凭证，约 30-60 分钟。</li>
+<li><strong>建议动作</strong>：<strong>只读参考</strong>（抄结构，不整包接）。</li>
+<li><strong>clone 命令（不要自动执行，等你回"装"）</strong>：
+  <code>powershell
+  powershell -ExecutionPolicy Bypass -File "C:\Users\Krilenxs\Documents\默认项目\clone_repo.ps1" -Url https://github.com/google-labs-code/stitch-skills</code></li>
+</ul>
+<p>要我帮你装到本机吗？回"装"我就 clone 到 <code>_repos</code>。</p></article></body></html>

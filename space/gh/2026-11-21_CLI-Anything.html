@@ -1,0 +1,99 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>2026-11-21_CLI-Anything.md</title><style>
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+.meta{color:#64748b;font-size:.85em;margin-bottom:1em}
+</style></head><body><article><div class="meta">来源：2026-11-21_CLI-Anything.md · 生成视图</div><h1>GitHub 热门项目精讲 · 2026-11-21</h1>
+<ul>
+<li>项目：<code>HKUDS/CLI-Anything</code></li>
+<li>链接：https://github.com/HKUDS/CLI-Anything</li>
+<li>Star：<strong>61,419</strong>（今日 GitHub Trending 榜）</li>
+<li>语言：Python（≥3.10，Click + pytest）</li>
+<li>许可证：Apache-2.0</li>
+<li>规模：2,461 个测试全通过，18 个真实软件 Demo，带技术报告（arXiv）</li>
+</ul>
+<hr />
+<h2>1) 它是干什么的（说白了）</h2>
+<p><strong>把"只能人点鼠标"的软件，变成"AI 能直接调用的命令行工具"。</strong></p>
+<p>比如 GIMP（修图）、Blender（3D）、LibreOffice（文档）、各种 CAD —— 以前 AI 想用它们，只能"看屏幕、点按钮"，又慢又容易错。这个项目给每个软件生成一套<strong>命令行外壳（CLI）</strong>，AI 直接敲命令就能干活，还能拿到 <strong>JSON 结果</strong>。</p>
+<p>一句话背景（README 原话的意思）：<strong>今天的软件是给人用的，明天的用户是智能体。</strong></p>
+<h2>2) 它由哪几块组成（像一条"翻译流水线"）</h2>
+<pre><code>┌─ CLI-Hub（应用商店）
+│    pip install cli-anything-hub
+│    cli-hub list / search / info / install / launch
+│
+├─ 每个软件的 CLI 包：cli_anything.&lt;软件名&gt;
+│    统一命名：cli-anything-gimp / cli-anything-blender …
+│    统一输出：JSON（给 AI）+ 人类可读文本
+│
+├─ SKILL.md（说明书）
+│    自动生成：告诉 AI&quot;这个工具能干什么、怎么调&quot;
+│
+└─ 7 阶段生成器（harness generator）
+     把一个软件&quot;包装成 CLI&quot;的全流程：探测 → 设计命令 → 生成代码 → 测试 → 出 SKILL.md
+</code></pre>
+<p><strong>关键点</strong>：它不是"给 100 个软件各写一套插件"，而是做了一套<strong>生成器 + 统一契约</strong>，谁来都能按同一规矩接入。</p>
+<h2>3) 核心机制（它是怎么做到的）</h2>
+<p><strong>A. 把软件功能"翻译"成子命令</strong>
+- 每个软件被包成一组命令，比如 <code>cli-anything-gimp</code> 下有裁剪、调色、导出等子命令；
+- 每个命令都带 <code>--json</code> 之类的输出，AI 读 JSON 就知道成没成、结果在哪。</p>
+<p><strong>B. SKILL.md 是给 AI 看的"说明书"</strong>
+- 每个 CLI 自动生成 <code>skills/cli-anything-&lt;软件&gt;/SKILL.md</code>；
+- 里面有：能干什么、有哪些命令组、常用示例、出错怎么办；
+- AI 助手读了这份说明书，就知道该怎么调，不用人去教。</p>
+<p><strong>C. 生成器分 7 个阶段跑</strong>
+- 从"分析目标软件"到"生成 CLI 代码"到"生成 SKILL.md"，一条流水线跑完；
+- 生成的包能直接 <code>pip install</code>，不污染环境（都在 <code>cli_anything.*</code> 命名空间下）。</p>
+<p><strong>D. 让 AI"边做边看"</strong>
+- README 强调 <strong>preview / live preview / trajectory 回路</strong>：AI 调完命令能看到预览（3D 场景、CAD 图、字幕…），不满意再改，形成闭环。</p>
+<h2>4) 一次完整使用（像装 App 一样简单）</h2>
+<ol>
+<li>装"应用商店"：
+   <code>bash
+   pip install cli-anything-hub</code></li>
+<li>逛一逛、搜一搜：
+   <code>bash
+   cli-hub list
+   cli-hub search image</code></li>
+<li>装一个、跑起来：
+   <code>bash
+   cli-hub install gimp
+   cli-hub info gimp
+   cli-hub launch gimp</code></li>
+<li>让你的 AI 助手读 <code>SKILL.md</code>，然后它就能自己调这些命令干活（修图、建模、做图、写字幕…）。</li>
+</ol>
+<blockquote>
+<p>注意：有些 CLI 只是"外壳"，真正干活还需要装上游软件（GIMP / Blender / LibreOffice 等）。</p>
+</blockquote>
+<h2>5) 它比同类强在哪</h2>
+<ol>
+<li><strong>不是画饼</strong>：2,461 个测试、18 个真实软件 Demo（CAD 建模、3D 场景、图表、游戏、字幕…）；</li>
+<li><strong>统一契约</strong>：所有 CLI 一个命名规范、一种输出格式，AI 学一次就会用所有；</li>
+<li><strong>SKILL.md 自动生成</strong>：从代码里的 Click 装饰器直接抽元数据，不会"文档和代码脱节"；</li>
+<li><strong>可分发</strong>：<code>pip install</code> 就能装，CLI-Hub 还能一键装社区贡献的；</li>
+<li><strong>有研究支撑</strong>：附技术报告（arXiv），不是纯工程仓库。</li>
+</ol>
+<h2>6) 你可以怎么玩</h2>
+<ul>
+<li><strong>只想用</strong>：<code>pip install cli-anything-hub</code> → <code>cli-hub list</code> 看看有没有你常用的软件（图像、办公、3D 都有可能）；</li>
+<li><strong>想给自己的软件做 CLI</strong>：装它的插件/技能，跑 7 阶段生成器，产出一个 <code>cli-anything-xxx</code> 包；</li>
+<li><strong>给 AI 用</strong>：把生成出来的 <code>SKILL.md</code> 放进你的 AI 助手技能目录，它就能自动调用。</li>
+</ul>
+<p><strong>给你的建议</strong>：先 <code>cli-hub search</code> 搜你天天用的软件名（比如 blender / gimp / libreoffice），装一个试一条命令——这是理解"agent-native 软件"最快的方式。</p>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>CLI-Anything = 给所有软件配一个"AI 能听懂的命令行翻译官"</strong>：统一的 CLI + 自动生成的说明书，让智能体像老手一样操作真实软件。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：GitHub Trending 页面 + 仓库 README/仓库页（star 61,419）；"设计意图"为基于文档的解读。</em></p></article></body></html>

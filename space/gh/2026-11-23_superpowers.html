@@ -1,0 +1,117 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>2026-11-23_superpowers.md</title><style>
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}
+</style><body><article><h1>GitHub 热门项目精讲 · 2026-11-23</h1>
+<ul>
+<li>项目：<code>obra/superpowers</code></li>
+<li>链接：https://github.com/obra/superpowers</li>
+<li>Star：<strong>324,299</strong></li>
+<li>语言/形态：技能库 + 插件（Markdown 技能 + 各 harness 安装器）</li>
+<li>为什么选它：<strong>它把"怎么让 AI 写代码"做成了一整套可自动触发的技能</strong>，正好对上 DSH 的技能体系与子代理编排。</li>
+</ul>
+<blockquote>
+<p>数据说明：今日 GitHub Trending 页面返回的 16 个项目与 11-21/11-22 完全一致（加了时间戳绕过缓存仍相同），疑似上游缓存；star 为仓库页实时读取值。</p>
+</blockquote>
+<hr />
+<h2>1) 它是干什么的（说白了）</h2>
+<p><strong>一句话：给 AI 编程助手装一套"职业习惯"。</strong></p>
+<p>你随口说"帮我做个 X"，普通 AI 会立刻开始写代码；装了 Superpowers 的 AI 会先<strong>反过来问你</strong>："你到底想解决什么问题？" 问清楚后，先给你一份<strong>设计说明</strong>（一小段一小段给你看），你点头了才出<strong>实施计划</strong>，然后才动手写，而且每写一段都要<strong>先写测试、看它失败、再写代码、看它通过</strong>。</p>
+<p>它不是"一个工具"，而是一组<strong>技能（skills）</strong> + 一段开场指令：让你用的 AI（Claude Code、Codex、Cursor、Gemini CLI……）在合适的时机自动加载对应的技能。</p>
+<h2>2) 它由哪几块组成</h2>
+<pre><code>┌─ 技能库（Skills Library）—— 17 个技能，分 4 类
+│    测试：test-driven-development
+│    调试：systematic-debugging / verification-before-completion / diagnosing-superpowers
+│    协作：brainstorming / writing-plans / executing-plans /
+│          dispatching-parallel-agents / requesting-code-review /
+│          receiving-code-review / using-git-worktrees /
+│          finishing-a-development-branch / subagent-driven-development
+│    元技能：writing-skills / using-superpowers
+│
+├─ 开场指令（initial instructions）
+│    让 AI 在对话开始时就加载 using-superpowers，从而&quot;自动触发&quot;后续技能
+│
+└─ 各 harness 的安装器
+     Claude Code / Codex App / Codex CLI / Cursor / Gemini CLI /
+     GitHub Copilot CLI / Kimi Code / OpenCode / Qwen Code / Devin / Muse …
+</code></pre>
+<h2>3) 核心机制（它怎么做到"自动"）</h2>
+<p><strong>A. 技能是"带触发条件的行为规范"</strong>
+每个技能就是一份 Markdown：什么情况该用、按什么步骤做、做到什么标准。AI 读到就会照着做——不是靠你每次提醒。</p>
+<p><strong>B. 一个"总开关"技能</strong>
+<code>using-superpowers</code> 会被装进 harness 的启动流程，它的描述会提示模型"开场就加载我"，于是后面的技能就能按阶段被触发。</p>
+<p><strong>C. 把"开发"拆成固定流水线</strong>
+1. <code>brainstorming</code>：问清你要什么 → 复述给你确认
+2. <code>using-git-worktrees</code>：开独立分支，跑一遍测试确认基线干净
+3. <code>writing-plans</code>：拆成 2-5 分钟的小任务，每个任务写清文件路径、代码、验证步骤
+4. <code>subagent-driven-development</code>：<strong>每个任务派一个子代理</strong>去做，做完立刻审查（先查是否符合规格，再查代码质量）
+5. <code>test-driven-development</code>：强制 RED-GREEN-REFACTOR（先写失败的测试→最小实现→测试通过→提交）
+6. <code>requesting-code-review</code>：收尾前自查清单</p>
+<p><strong>D. 理念写死在技能里</strong>
+TDD 优先、系统化而非拍脑袋、以"降低复杂度"为目标、<strong>先验证再宣布完成</strong>。</p>
+<h2>4) 一次完整使用</h2>
+<p>以 Claude Code 为例（其它 harness 类似，README 里有逐家命令）：</p>
+<pre><code class="language-bash">/plugin install superpowers@claude-plugins-official
+</code></pre>
+<p>或从它自己的市场装：</p>
+<pre><code class="language-bash">/plugin marketplace add obra/superpowers-marketplace
+/plugin install superpowers@superpowers-marketplace
+</code></pre>
+<p>装完你只要正常提需求，例如"给这个仓库加一个导出 CSV 的按钮"，它会：
+先问你用途 → 给你设计 → 你确认 → 出计划 → 派子代理逐条实现 → 每条都跑测试 → 最后自查。</p>
+<h2>5) 它比同类强在哪</h2>
+<ol>
+<li><strong>不是提示词合集，是方法论</strong>：从需求澄清到合并分支，全流程都有对应技能；</li>
+<li><strong>子代理编排是真的</strong>：<code>subagent-driven-development</code> + <code>dispatching-parallel-agents</code>，把"一个 AI 干完"变成"多个 AI 分工 + 互相审查"；</li>
+<li><strong>强制 TDD</strong>：技能里直接规定"测试没过不许写实现"，把纪律写进流程；</li>
+<li><strong>跨 harness 覆盖极广</strong>：15+ 种客户端都有安装方式，换工具不用重学；</li>
+<li><strong>可扩展</strong>：<code>writing-skills</code> 教你怎么写新技能，还带测试方法。</li>
+</ol>
+<h2>6) 怎么用在你身上（对 DSH 的具体价值）</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>用法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>给 DSH 加"开发流程"技能</td>
+<td>把 <code>brainstorming</code>、<code>writing-plans</code>、<code>subagent-driven-development</code>、<code>test-driven-development</code> 四个技能拷进 <code>~/.dsh/skills</code>，我接活时会自动按流程走</td>
+</tr>
+<tr>
+<td>子代理编排</td>
+<td><code>dispatching-parallel-agents</code> 的写法可直接借鉴到 DSH 的 subagent / workflow 用法</td>
+</tr>
+<tr>
+<td>技能质量</td>
+<td>与上周装的 SkillEvaluator 正好互补：一个管"怎么写技能"，一个管"技能写得好不好"</td>
+</tr>
+<tr>
+<td>fakao-pwa</td>
+<td>用它的 TDD + 计划拆解流程改题库/接口，减少"改完才发现跑不通"</td>
+</tr>
+</tbody>
+</table>
+<p><strong>适配度：高</strong>（纯 Markdown 技能 + 安装脚本，无重依赖；DSH 已有 skills 目录，直接放进去即可）。
+<strong>上手成本</strong>：低（不需要编译，不需要 API key；先挑 2-3 个技能试）。</p>
+<p><strong>clone 命令</strong>（我不会自动执行）：</p>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File &quot;C:\Users\Krilenxs\Documents\默认项目\clone_repo.ps1&quot; -Url https://github.com/obra/superpowers
+</code></pre>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>Superpowers = 给 AI 装一套"工程师的规矩"</strong>：先问清楚、再出图纸、拆成小活、边写边测、收工前自查——而且这些规矩会自动生效，不用你每次叮嘱。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：仓库 README（How it works / The Basic Workflow / What's Inside / Philosophy）、GitHub 仓库页（star 324,299）。</em></p></article></body></html>

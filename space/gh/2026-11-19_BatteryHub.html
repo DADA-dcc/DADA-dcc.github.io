@@ -1,0 +1,90 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>2026-11-19_BatteryHub.md</title><style>
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+.meta{color:#64748b;font-size:.85em;margin-bottom:1em}
+</style></head><body><article><div class="meta">来源：2026-11-19_BatteryHub.md · 生成视图</div><h1>GitHub 热门项目精讲 · 2026-11-19</h1>
+<ul>
+<li>项目：<code>krisgfx9/Wireless-Device-Battery-Monitor</code>（应用名 <strong>BatteryHub</strong>）</li>
+<li>链接：https://github.com/krisgfx9/Wireless-Device-Battery-Monitor</li>
+<li>Star：4,044（2026-11-16 创建，三天涨到 4k）</li>
+<li>语言：C++ / Win32（Linux 版实验性）</li>
+<li>许可证：GPL-3.0</li>
+<li>体积：约 350KB，内存约 2MB，<strong>不需要管理员权限</strong></li>
+</ul>
+<hr />
+<h2>1) 它是干什么的（说白了）</h2>
+<p><strong>在你的 Windows 任务栏上，直接显示无线鼠标、耳机、键盘、手柄还剩多少电。</strong></p>
+<p>就像在任务栏贴了一排小标签：<code>🎧 30%  🖱 93%</code>。低于 15% 变红，充电时旁边出现蓝色闪电，充满变绿色对勾。</p>
+<p>它解决的问题：想知道罗技/雷蛇/海盗船的电量，通常得<strong>打开厂商那一大坨软件</strong>（G HUB、Synapse、iCUE…）。这个小工具<strong>不用装任何厂商软件</strong>，自己直接去问设备。</p>
+<h2>2) 它由哪几块组成（像一个"抄表员小队"）</h2>
+<pre><code>BatteryHub.exe（一个 350KB 的小程序）
+ ├─ 各品牌&quot;抄表员&quot;（src/drivers/）
+ │    罗技、雷蛇、赛睿、海盗船、HyperX、PS/Xbox 手柄…
+ │    每家按&quot;厂商ID+产品ID&quot;认设备，只发&quot;只读&quot;的电量查询
+ ├─ 通用兜底（HID 电量 / 蓝牙 / XInput / HeadsetControl）
+ │    厂商抄表员没认领的设备，才走这些通用办法
+ ├─ 任务栏小挂件
+ │    它不是普通窗口，而是&quot;贴&quot;在系统任务栏里的子窗口
+ └─ 可选：电量历史（本地 TSV，最多 30 天）
+</code></pre>
+<h2>3) 核心机制（它是怎么做到的）</h2>
+<p><strong>A. 怎么"问"出电量？</strong>
+- 每个品牌的设备都有一套<strong>自己的"暗号"</strong>（HID 报告格式），文档里根本没公开；
+- 项目按"厂商ID + 产品ID"认出设备，然后发一条<strong>只读</strong>的电量查询；
+- <strong>不认识的设备，绝不乱写</strong>——这是它反复强调的安全底线。</p>
+<p><strong>B. 为什么能贴在任务栏上？</strong>
+- 它找到 Windows 任务栏的内部窗口 <code>Shell_TrayWnd</code>，把自己的小窗口<strong>挂成它的子窗口</strong>，放在时钟左边；
+- 资源管理器重启了？它会自动重建。</p>
+<p><strong>C. 多设备怎么区分？</strong>
+- 两个鼠标？图标角上会有 3 个字母的小标签（如 <code>MX</code>、<code>PRO</code>）；
+- 还能按品牌上色（雷蛇绿、HyperX 红…）。</p>
+<p><strong>D. 更新为什么"敢自动装"？</strong>
+- 作者用自己的私钥给"校验清单"签名，<strong>公钥写死在程序里</strong>；
+- 下载的安装包 SHA-256 必须和签名清单一致才运行；
+- 就算有人盗了 GitHub 账号，也发不出能被自动安装的恶意更新。</p>
+<h2>4) 一次使用流程（像给设备"点名"）</h2>
+<ol>
+<li>下载安装包 → 一路下一步（<strong>不需要管理员</strong>）；</li>
+<li>任务栏出现 <code>🎧 30% 🖱 93%</code>；</li>
+<li>鼠标悬停看详情，点击出菜单（显示/隐藏设备、刷新、开机启动、退出）；</li>
+<li>每 60 秒自动刷新一次；插电或电脑唤醒时立刻刷新；</li>
+<li>想查历史：右键设备 → <strong>Battery history…</strong>（24 小时 / 7 天 / 30 天）。</li>
+</ol>
+<p>命令行也好用：</p>
+<pre><code>BatteryHub.exe --list    # 列出所有设备和电量
+BatteryHub.exe --json    # 输出 JSON，给脚本/状态栏用
+BatteryHub.exe --dump    # 导出所有 HID/USB/蓝牙信息（提 issue 用）
+</code></pre>
+<h2>5) 它比同类强在哪</h2>
+<ol>
+<li><strong>极小</strong>：350KB / 2MB 内存，纯 Win32，无运行库、无后台服务；</li>
+<li><strong>不装厂商软件</strong>：直接跟设备说话，且<strong>只读</strong>；</li>
+<li><strong>覆盖面夸张</strong>：几百款设备、几十个品牌（README 里那张表长得吓人）；</li>
+<li><strong>更新链安全</strong>：签名校验清单 + 公钥内置，防账号被盗投毒；</li>
+<li><strong>诚实</strong>：专门列了"不支持/读不到"的设备与原因（如某些键盘固件根本不报电量）。</li>
+</ol>
+<h2>6) 你可以怎么玩</h2>
+<ul>
+<li><strong>普通用户</strong>：去 Releases 下 <code>BatteryHub-Setup</code>，安装即用；</li>
+<li><strong>设备没被识别</strong>：菜单里点 <strong>Request support for a device…</strong>，它会生成一份报告（先给你看要发什么），提交后作者加支持；</li>
+<li><strong>想改代码</strong>：需要 MinGW-w64，<code>make</code> 或 <code>build.bat</code> 即可构建。</li>
+</ul>
+<p><strong>给你的建议</strong>：如果你有罗技/雷蛇/手柄这类无线设备，装它比开厂商软件省事得多——尤其打游戏时任务栏一眼就能看到手柄电量。</p>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>BatteryHub = 一个 350KB 的"任务栏抄表员"</strong>：按品牌暗号只读地问设备电量，不装厂商软件、不要管理员、还把更新链做成了签名验证。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：GitHub API（star/语言/时间）+ 仓库 README；"设计意图"为基于文档的解读。</em></p></article></body></html>

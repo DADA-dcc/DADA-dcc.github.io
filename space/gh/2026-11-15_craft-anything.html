@@ -1,0 +1,115 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>2026-11-15_craft-anything.md</title><style>
+:root{color-scheme:light}
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em;margin-top:.2em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+.meta{color:#64748b;font-size:.85em;margin-bottom:1em}
+</style></head><body><article><div class="meta">来源：2026-11-15_craft-anything.md · 生成视图</div><h1>GitHub 热门项目精讲 · 2026-11-15</h1>
+<ul>
+<li>项目：<code>storytold/craft-anything</code></li>
+<li>链接：https://github.com/storytold/craft-anything</li>
+<li>Star：33,041（创建于 2026-10-31）</li>
+<li>语言：Rust（100%）</li>
+<li>许可证：MIT / Apache-2.0</li>
+<li>状态：early alpha（早期测试）</li>
+</ul>
+<hr />
+<h2>1) 项目是什么 / 解决什么问题</h2>
+<p><strong>一句话</strong>：看任何网站 / App / 游戏是怎么做的，然后让 AI 给你复刻一个——一个开源的<strong>净室重建引擎（clean-room reverse engineering + rebuild）</strong>。</p>
+<ul>
+<li>指向一个目标，说"我想要什么"，它用真实检查工具研究原对象，让编码智能体生成一个新项目，再拿新项目与原对象<strong>逐项比对</strong>、迭代到"足够像"。</li>
+<li>100% Rust；自带解析器/反汇编器/反编译器（不依赖外部程序），装了 Ghidra 则额外用 Ghidra。</li>
+<li>为什么选它：它是 AI + 逆向 + 编程三条线的交汇点，且与 REA 同属"证据驱动、工具化"路数。</li>
+</ul>
+<h2>2) 整体架构与模块划分</h2>
+<pre><code>┌─────────────── 三种入口(同一引擎) ───────────────┐
+│ egui 桌面App  │  craft-anything-cli  │  MCP server │  (部分还编译成 WASM 跑浏览器)
+└───────┬───────────────┬─────────────────┬────────┘
+        ▼               ▼                 ▼
+  ┌──────────────── 纯 Rust 引擎(约320工具/300内核) ────────────────┐
+  │ 自研: 解析器/解码器/反汇编器/反编译器(不依赖外部)              │
+  │ 可选: Ghidra；目标: 原生/.NET/Java/Android/Apple/Electron/JS/   │
+  │       网站/固件/抓包/数据库/游戏资源                            │
+  └──────────────────────────┬─────────────────────────────────────┘
+                             ▼
+        ┌────────── AI 层(编码智能体) ──────────┐
+        │ Claude Code(默认,跑你自己的 claude)   │
+        │ Codex / Copilot / Grok / 任意 ACP 智能体│
+        └──────────────┬───────────────────────┘
+                       ▼
+   项目工作区: craft.json · capture/ · app/ · checks/ · investigation.cany/ · inbox/
+</code></pre>
+<h2>3) 核心机制与关键代码</h2>
+<h3>A. 四步流水线：Study → Build → Check → Ready</h3>
+<ul>
+<li><strong>Study（研究）</strong>：用真实检查工具研究原目标——网站：三种屏幕宽度截图、可见文字、量出的布局/颜色/字体/间距、展开菜单；App：窗口截图；Deep 模式才读代码/文件/JS。</li>
+<li><strong>Build（构建）</strong>：编码智能体按你指定的语言/框架/引擎（或合理默认）生成新项目。</li>
+<li><strong>Check（比对）</strong>：把新构建与原对象逐项比对，列出"还不像"的地方（网站比三种宽度、游戏跑自测、App 跑起来看行为）。</li>
+<li><strong>Ready（完成）</strong>：打开/试玩/预览，或继续改。</li>
+</ul>
+<h3>B. 净室(Clean room) vs 深挖(Deep)——最妙的设计</h3>
+<ul>
+<li><strong>净室（默认）</strong>：拒绝读取目标内部（代码/文件/页面源码），只靠"外部可观察"重建；越界工具会被<strong>拒绝</strong>并提示如何开 Deep。</li>
+<li><strong>Deep</strong>：全部工具放开，可读代码/文件/JS，装了 Ghidra 就用 Ghidra。</li>
+<li>把"合规/伦理"做成<strong>产品默认档位</strong>，而不是一句免责声明。</li>
+</ul>
+<h3>C. 证据优先，防 AI 瞎编</h3>
+<ul>
+<li>每个结果都是<strong>带 confidence / coverage / limitations 的证据记录</strong>；大结果先给 summary，再用 <code>core_evidence_browse</code> 分页查看。</li>
+<li>320 个工具<strong>同时</strong>是 CLI 子命令和 MCP 工具 → App、CLI、任意智能体走<strong>同一套引擎</strong>，结果可复现。</li>
+</ul>
+<h3>D. 命令闸门</h3>
+<ul>
+<li>构建安装依赖会真跑命令（npm/cargo…），对<strong>没见过的命令类型</strong>先弹"审批卡片"，可"本次允许/始终允许"。</li>
+</ul>
+<h2>4) 数据流 / 一次完整调用时序</h2>
+<pre><code class="language-bash">craft-anything-cli rebuild https://example.com &quot;Recreate this website&quot;
+</code></pre>
+<ol>
+<li>建项目目录 <code>Documents/Craft Anything/&lt;proj&gt;</code></li>
+<li><strong>Study</strong>：截图/量布局/取证 → 写 <code>investigation.cany/</code> 与 <code>capture/</code></li>
+<li><strong>Build</strong>：把证据喂给 Claude Code → 生成 <code>app/</code></li>
+<li><strong>Check</strong>：三宽度截图比对 → <code>checks/</code> 里列出差异与相似度</li>
+<li>未达标 → 带着差异回填再构建（轮次 <code>--rounds</code>）</li>
+<li><strong>Ready</strong>：打开预览；"Make the header blue" 等增量修改</li>
+</ol>
+<p>目录里 <code>craft.json</code> 记请求/目标/状态/历史，<code>inbox/</code> 放待回答的问题——整个流程<strong>可审计、可续跑</strong>。</p>
+<h2>5) 关键难点与巧思</h2>
+<ol>
+<li><strong>纯 Rust 自研反汇编/反编译器</strong>，不装 Ghidra 也能干一部分活（Ghidra 装了当增强）——跨平台一致、可编译 WASM。</li>
+<li><strong>一套工具三处复用</strong>（App/CLI/MCP），天然 agent-ready：每个工具都是子命令 + MCP 工具。</li>
+<li><strong>净室默认</strong>：把"只看可见、不碰源码"变成可强制执行的能力开关。</li>
+<li><strong>比对闭环（Check）</strong>：不是"生成完就算"，而是拿证据量化相似度再迭代。</li>
+<li><strong>证据账本</strong>：区分事实/置信度/局限，直接对抗大模型幻觉。</li>
+</ol>
+<h2>6) 如何自己复现 / 上手</h2>
+<pre><code class="language-bash"># 需要 Rust &gt;= 1.97
+rustup update
+git clone https://github.com/storytold/craft-anything &amp;&amp; cd craft-anything
+cargo run --release -p craft-anything          # 桌面 App
+cargo install --path apps/craft-anything-cli    # 安装 CLI
+craft-anything-cli doctor                       # 检查智能体/引擎是否就绪
+craft-anything-cli rebuild https://example.com &quot;Recreate this website&quot;
+</code></pre>
+<ul>
+<li><strong>前提</strong>：本机要有一个登录好的编码智能体（默认 Claude Code，跑你自己的 <code>claude</code>，它不碰你的账号）。</li>
+<li>切模式：标题栏/设置，或 <code>settings_set deep_mode true</code>，或单次 <code>--deep</code> / <code>--clean-room</code>。</li>
+<li>Linux 桌面还需 <code>libxkbcommon / wayland / x11 / gtk3</code> 等开发包。</li>
+</ul>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>Craft Anything = 用"净室可观察 + 证据账本 + 编码智能体 + 比对闭环"，把"看懂一个软件并复刻它"做成可复现的四步流水线</strong>；纯 Rust、工具即 CLI/MCP，是该方向少见的工程化实现（早期 alpha，部分能力"已建未实测"，勿当成熟商用）。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：GitHub API（star/语言/创建时间）+ 仓库 README；"设计意图/优劣"为基于文档的解读。</em></p></article></body></html>

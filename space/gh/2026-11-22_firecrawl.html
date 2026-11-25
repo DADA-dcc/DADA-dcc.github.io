@@ -1,0 +1,130 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>2026-11-22_firecrawl.md</title><style>
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+</style><body><article><h1>GitHub 热门项目精讲 · 2026-11-22</h1>
+<ul>
+<li>项目：<code>firecrawl/firecrawl</code></li>
+<li>链接：https://github.com/firecrawl/firecrawl</li>
+<li>Star：<strong>206,375</strong></li>
+<li>语言/形态：TypeScript 主仓 + Rust 本地版（Firecrawl Local）</li>
+<li>许可证：AGPL-3.0（仓库内附 LICENSE）</li>
+<li>为什么选它：<strong>它是"给 AI 喂干净网页"的基础设施</strong>，能以 MCP 方式直接接进 DSH，补上"网页 → 干净 Markdown"这一步，正好服务你的"Google/维基/知网/学术"检索栈。</li>
+</ul>
+<hr />
+<h2>1) 它是干什么的（说白了）</h2>
+<p><strong>一句话：把任何网页"洗"成 AI 能直接读的干净文本。</strong></p>
+<p>网页对 AI 不友好——满屏广告、导航、JavaScript 动态加载。Firecrawl 干的事就是：你给它一个链接，它把整页内容抓下来、去掉垃圾、转成<strong>结构化 Markdown</strong>，AI 直接就能用。</p>
+<p>三种用法（README 原话）：
+1. <strong>Firecrawl Local</strong>：装在自己电脑上，一个可执行文件，不依赖数据库/队列/容器；
+2. <strong>Firecrawl Cloud</strong>：官方托管服务，量大、还带搜索和 550+ 数据源；
+3. <strong>自托管</strong>：从 <code>apps/api</code> 部署完整服务（带队列、worker、数据库）。</p>
+<h2>2) 架构：四个核心动作 + 两条路</h2>
+<pre><code>            ┌──────────── 你/你的 AI ────────────┐
+            │                                   │
+      Firecrawl Local (本机)            Firecrawl Cloud (托管)
+      Rust 单文件，无依赖                firecrawl.dev API
+            │                                   │
+            └────────── 同一套能力 ─────────────┘
+                            │
+   ┌──────────┬──────────┬──┴───────┬──────────┐
+   Scrape     Crawl      Map        Search     Interact / Agent
+   抓一页     抓整站     列全部URL  联网搜索    点按操作 / 自主采集
+</code></pre>
+<ul>
+<li><strong>Scrape</strong>：抓单个页面 → Markdown；</li>
+<li><strong>Crawl</strong>：抓整站，按页存文件；</li>
+<li><strong>Map</strong>：只列站点所有 URL（不抓内容，快）；</li>
+<li><strong>Search</strong>：联网搜索（Cloud 能力）；</li>
+<li><strong>Interact / Agent</strong>：抓完还能"点按钮、翻页"，甚至自主采集。</li>
+</ul>
+<h2>3) 核心机制（怎么做到的）</h2>
+<p><strong>A. 真浏览器渲染</strong>
+- 需要 JS 的页面，用你机器上<strong>已有的 Chrome/Chromium</strong> 渲染；没有浏览器时，纯静态页也能抓，但会提示"这页需要浏览器"。
+- PDF、Office 文档也能在本地解析。</p>
+<p><strong>B. 输出以 Markdown 为主</strong>
+- 默认给 Markdown（干净、带结构），也支持结构化 JSON（Cloud）。</p>
+<p><strong>C. 两种接入方式</strong>
+1. <strong>命令行</strong>：
+   <code>bash
+   firecrawl-local scrape https://example.com --markdown
+   firecrawl-local crawl https://docs.example.com --limit 50 --out ./pages
+   firecrawl-local map https://example.com</code>
+2. <strong>本地 API 服务</strong>：
+   <code>bash
+   firecrawl-local serve        # 在 3002 端口提供 Firecrawl v2 API，本地不需要 key</code>
+   现有 Firecrawl SDK 改个地址就能用：<code>Firecrawl(api_url="http://localhost:3002")</code>。</p>
+<p><strong>D. 一键接进 AI 工具（关键）</strong></p>
+<pre><code class="language-bash">firecrawl-local init
+</code></pre>
+<p>它会自动找到你机器上的 <strong>Claude Code / Claude Desktop / Cursor / Windsurf / Gemini CLI / Codex</strong>，把 Firecrawl Local 注册成 <strong>MCP server</strong>，并且<strong>先备份</strong>每个配置文件（需要 Node.js 22+，注册后重启 AI 工具生效）。</p>
+<h2>4) 一次完整使用（走一遍）</h2>
+<ol>
+<li>装（需要 Rust 环境）：
+   <code>bash
+   cargo install firecrawl-local</code>
+   没有 Rust 也可以先用云端：<code>npx -y firecrawl-cli@latest scrape https://firecrawl.dev</code></li>
+<li>抓一页看效果：
+   <code>bash
+   firecrawl-local scrape https://firecrawl.dev --markdown</code></li>
+<li>抓整站存 Markdown：
+   <code>bash
+   firecrawl-local crawl https://docs.firecrawl.dev --limit 50 --out ./pages</code></li>
+<li>接进 AI：<code>firecrawl-local init</code> → 重启 AI 工具 → 之后 AI 就能自己"抓网页"。</li>
+</ol>
+<h2>5) 它比同类强在哪</h2>
+<ol>
+<li><strong>本机就能跑</strong>：Rust 单文件，不用 Docker、不用数据库，隐私页面不出本机；</li>
+<li><strong>MCP 一键注册</strong>：自动识别 6 种主流 AI 客户端并写配置（还先备份），省掉手写 mcp.json；</li>
+<li><strong>复用本机浏览器</strong>：用已有的 Chrome/Chromium 渲染，不额外下载浏览器；</li>
+<li><strong>同一套 API 本地/云端通用</strong>：本地写的代码迁到云端不用改；</li>
+<li><strong>生态成熟</strong>：206k star、多语言 SDK（Python/Node/cURL/CLI）、文档齐全。</li>
+</ol>
+<h2>6) 怎么用在你身上（对 DSH 的具体价值）</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>用法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>查资料（Google/维基/知网/学术）</td>
+<td>页面是 JS 重灾区，用 <code>scrape</code> 拿到干净正文再分析，比直接抓 HTML 准</td>
+</tr>
+<tr>
+<td>知网/学术页</td>
+<td>只能拿摘要时，用 <code>crawl</code> 批量抓多篇摘要做对比</td>
+</tr>
+<tr>
+<td>接进 DSH</td>
+<td><code>firecrawl-local init</code> 若支持 Codex/Claude 配置路径，可参照其生成的 MCP 配置手工接入 DSH</td>
+</tr>
+<tr>
+<td>离线留存</td>
+<td><code>crawl --out ./pages</code> 把整站存成本地 Markdown，进你的记忆库（chroma）做检索</td>
+</tr>
+</tbody>
+</table>
+<p><strong>建议动作：只读参考 + 试用 Cloud CLI</strong>（<code>npx firecrawl-cli scrape</code>），确认好用再考虑装 Local（需要 Rust）。</p>
+<p><strong>clone 命令</strong>（我不会自动执行）：</p>
+<pre><code class="language-powershell">powershell -ExecutionPolicy Bypass -File &quot;C:\Users\Krilenxs\Documents\默认项目\clone_repo.ps1&quot; -Url https://github.com/firecrawl/firecrawl
+</code></pre>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>Firecrawl = 网页的"榨汁机"</strong>：丢进去一个网址，倒出来一杯 AI 能直接喝的 Markdown，还能一键插进你的 AI 工具。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：GitHub Trending 页面、仓库 README、仓库页（star 206,375）。"设计意图/价值判断"部分为基于文档的解读。</em></p></article></body></html>

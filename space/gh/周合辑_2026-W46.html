@@ -1,0 +1,109 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>周合辑_2026-W46.md</title><style>
+:root{color-scheme:light}
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em;margin-top:.2em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+.meta{color:#64748b;font-size:.85em;margin-bottom:1em}
+</style></head><body><article><div class="meta">来源：周合辑_2026-W46.md · 生成视图</div><h1>本周合辑 · 2026-W46（11-09 ~ 11-15）</h1>
+<blockquote>
+<p>本系列自 2026-11-15 启动，本周仅 1 篇。其余日期如实标注「当日未产出」，不做补写。
+数据来源：<code>GitHub每日精讲/</code> 目录下的每日精讲文件。</p>
+</blockquote>
+<h2>1) 本周项目清单</h2>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>仓库</th>
+<th>Star</th>
+<th>语言</th>
+<th>一句话是什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-11-15</td>
+<td><a href="https://github.com/storytold/craft-anything">storytold/craft-anything</a></td>
+<td>33,041</td>
+<td>Rust</td>
+<td>看任何网站/App/游戏怎么做的，再让 AI 净室复刻一个</td>
+</tr>
+<tr>
+<td>2026-11-09</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>当日未产出</td>
+</tr>
+<tr>
+<td>2026-11-10</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>当日未产出</td>
+</tr>
+<tr>
+<td>2026-11-11</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>当日未产出</td>
+</tr>
+<tr>
+<td>2026-11-12</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>当日未产出</td>
+</tr>
+<tr>
+<td>2026-11-13</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>当日未产出</td>
+</tr>
+<tr>
+<td>2026-11-14</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>当日未产出</td>
+</tr>
+</tbody>
+</table>
+<h2>2) 逐项目要点回顾</h2>
+<h3>craft-anything（2026-11-15）</h3>
+<ul>
+<li><strong>本质</strong>：三层结构——egui 桌面 App / CLI / MCP server 三个入口，共用<strong>同一个纯 Rust 引擎</strong>（约 320 个工具，300 在内核），引擎自带解析器/反汇编器/反编译器，Ghidra 可选增强。</li>
+<li><strong>四步流水线</strong>：<code>Study(取证研究) → Build(编码智能体生成) → Check(与原对象逐项比对) → Ready(预览/迭代)</code>；比对是硬闭环，不是"生成完就算"。</li>
+<li><strong>净室 vs 深挖</strong>：默认「净室」拒绝读取目标内部（源码/文件），只看外部可观察（截图、可见文字、量出的布局/配色/字体/间距）；切到 Deep 才开放代码/JS/Ghidra。把合规做成产品默认档位。</li>
+<li><strong>证据账本</strong>：每个结果都是带 confidence / coverage / limitations 的证据记录，大结果先 summary 再用 <code>core_evidence_browse</code> 分页——直接对抗大模型幻觉。</li>
+<li><strong>工程化细节</strong>：工具即 CLI 子命令又即 MCP 工具（agent-ready）；安装依赖等命令有「审批卡片」闸门；项目目录 <code>craft.json/capture/app/checks/investigation.cany/inbox</code> 可审计可续跑。</li>
+</ul>
+<h2>3) 横向对比与趋势</h2>
+<p>本周样本仅 1 个，无法做严格横向对比，但可读出几条<strong>方向性信号</strong>（供后续周累积验证）：
+- <strong>"看懂→重建"成为独立赛道</strong>：不再只是"读代码"，而是把「研究—生成—比对—迭代」做成流水线产品。
+- <strong>Rust 作为基础设施首选</strong>：单文件跨平台、可编译 WASM（浏览器里也能跑一部分）；同类工具（含我们此前用的 REA）也偏 Rust/TypeScript + MCP。
+- <strong>agent-ready 成标配</strong>：同一能力同时暴露 CLI + MCP，让"人用的 App"和"智能体调用"共用一套工具。
+- <strong>证据化 / 可审计</strong>：结果附带覆盖率与局限，正在从"炫功能"转向"可信、可复现"。
+- <strong>合规产品化</strong>：净室默认档，比免责声明更有约束力。</p>
+<h2>4) 值得深挖推荐</h2>
+<ul>
+<li><strong>craft-anything</strong>（唯一一篇，但确实值得动手）</li>
+<li>理由：它把 REA 那套"证据驱动逆向"升级成<strong>可交付的重建闭环</strong>，且工程实现（纯 Rust 自研反编译器 + 三入口同源 + 证据账本）有借鉴价值。</li>
+<li>下一步可做：①本机按 README 跑通 <code>craft-anything-cli doctor</code> 与 <code>rebuild https://example.com "Recreate this website"</code>；②观察它给编码智能体的<strong>证据格式</strong>与 <strong>check 相似度指标</strong>；③试切 <code>--clean-room</code> 与 <code>--deep</code>，对比两者能拿到什么、拒绝了什么——这块最能学到"如何设计一个可信的 AI 逆向工具"。</li>
+</ul>
+<hr />
+<p><em>说明：本周为系列首周，仅 1 篇；下周起按日累积后，本合辑的「横向对比与趋势」会更有统计意义。</em></p></article></body></html>

@@ -1,0 +1,84 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>2026-11-17_abyssal-garden.md</title><style>
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+.meta{color:#64748b;font-size:.85em;margin-bottom:1em}
+</style></head><body><article><div class="meta">来源：2026-11-17_abyssal-garden.md · 生成视图</div><h1>GitHub 热门项目精讲 · 2026-11-17</h1>
+<ul>
+<li>项目：<code>Noniv/abyssal-garden</code></li>
+<li>链接：https://github.com/Noniv/abyssal-garden</li>
+<li>Star：1,794（2026-11-12 创建，几天涨到近 1.8k）</li>
+<li>语言：JavaScript（WebGPU）</li>
+<li>许可证：MIT</li>
+<li>在线试玩：https://noniv.github.io/abyssal-garden/</li>
+</ul>
+<hr />
+<h2>1) 它是干什么的（说白了）</h2>
+<p><strong>一个打开网页就能"潜水"的海底世界，而且整个世界的画面没有任何图片、模型、音频文件——全是代码现场算出来的。</strong></p>
+<p>就像有人给你一个 96KB 的小盒子（比一张手机照片还小），打开后里面有：摇摆的海带森林、从水面射下来的光柱、沉船、鲸鱼尾巴、蝠鲼、鱼群、气泡，还有现场合成的海底音效。</p>
+<p>它解决的问题：证明<strong>"一个网页 + 一块显卡"就能做出接近游戏画面的 3D 世界</strong>，不需要美术素材、不需要游戏引擎、不需要安装。</p>
+<h2>2) 它由哪几块组成（像一个小剧组）</h2>
+<pre><code>index.html（96KB，一个文件 = 整部片子）
+ ├─ 场景组（world.js）：地形、海带、沉船、鲸鱼尾、鱼群怎么摆
+ ├─ 灯光组（shaders.js）：水色、雾、光柱、水面波纹怎么算
+ │    ↑ 用 WGSL 写&quot;着色器&quot;——告诉显卡每个像素怎么上色
+ ├─ 导演组（main.js）：摄像机、WASD 控制、6 个观景点、画质调度
+ ├─ 音效组（audio.js）：用 Web Audio 现场合成深海轰鸣/鲸叫/气泡
+ └─ 质检组（quality.js）：按你的电脑自动选&quot;低/中/高&quot;画质
+</code></pre>
+<p><strong>关键点</strong>：没有 3D 引擎（Unity/Three.js 都没有），直接调用浏览器的 <strong>WebGPU</strong>（显卡接口）。所有形状都是<strong>数学公式</strong>拼出来的——球、圆柱、噪声函数。</p>
+<h2>3) 核心机制（它是怎么做到的）</h2>
+<p><strong>A. 海底不是"画"出来的，是"算"出来的</strong>
+- 页面一打开，显卡用<strong>噪声函数</strong>（一种"随机但有规律"的数学）把海底、岩壁、拱门"雕"出来；
+- 然后撒上约 <strong>200 万片海带叶子</strong>、几万块石头、几千个珊瑚和海绵——位置都是程序生成的。</p>
+<p><strong>B. 光柱和焦散怎么来的</strong>
+- 不是贴图，是<strong>着色器</strong>里算的：光从水面往下、按水深变暗、加雾、加波纹；
+- 所以你游到哪，光就跟着正确变化。</p>
+<p><strong>C. 声音也是"算"的</strong>
+- 没有 mp3，用 Web Audio 现场合成：低频轰鸣、远处的鲸叫、随机气泡声。</p>
+<p><strong>D. 怎么保证不卡</strong>
+- 先测你的设备，自动选 <strong>低/中/高</strong>；
+- 运行时如果帧率不够，就<strong>先降分辨率、再降低远处的绘制距离</strong>，一步一步来；
+- 开场菜单背后其实已经在跑这个场景（模糊的），所以等你点"下水"时，参数已经调好了。</p>
+<h2>4) 一次完整体验（像进游乐园）</h2>
+<ol>
+<li>用 Chrome/Edge 打开 <code>index.html</code>（需要支持 WebGPU 的浏览器）；</li>
+<li>等几秒，世界在你显卡上"长"出来；</li>
+<li>点 <strong>Dive in</strong> → 鼠标看方向，WASD 游，E/Q 上下，Shift 加速；</li>
+<li>按 1–6 直接跳到 6 个观景点（沉船、海带森林、光柱、紫色洞窟…）；</li>
+<li>按 M 开关声音，H 看帧率，Esc 打开菜单换画质。</li>
+</ol>
+<h2>5) 它比同类强在哪</h2>
+<ol>
+<li><strong>体积极小</strong>：96KB 一个文件，离线也能跑，随手发微信都行；</li>
+<li><strong>零素材</strong>：没有图片/模型/音频版权问题，全是代码；</li>
+<li><strong>不用引擎</strong>：直接 WebGPU，性能上限高（RTX 5070 Ti 上 2560×1440 约 180 帧）；</li>
+<li><strong>自适应画质</strong>：从 8GB 手机到高端显卡都能跑，低端机 20 帧也能玩；</li>
+<li><strong>源码可读</strong>：<code>source/src/</code> 分模块写得清楚，适合学习"程序化生成"。</li>
+</ol>
+<h2>6) 你可以怎么玩</h2>
+<ul>
+<li><strong>只想看</strong>：下载 <a href="https://github.com/Noniv/abyssal-garden/blob/main/index.html">index.html</a> 双击打开（Chrome/Edge），或直接开在线版；</li>
+<li><strong>想改</strong>：装 Node.js 18+，然后：
+  <code>bash
+  cd source &amp;&amp; npm install &amp;&amp; npm run build</code>
+  想改水色就搜 <code>WCOL</code>，想改游泳速度就搜 <code>26 : 7</code>（快 : 慢）。</li>
+</ul>
+<p><strong>给你的建议</strong>：先玩 5 分钟，再去 <code>world.js</code> 改一个数字（比如海带数量），重新 build——这是理解"程序化世界"最快的方式。</p>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>Abyssal Garden = 96KB 代码 + 一块显卡 = 一整个海底世界</strong>：没有素材、没有引擎，全靠数学和着色器现场生成，还自动适配你的设备。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：GitHub API（star/语言/时间）+ 仓库 README；"设计意图"为基于文档的解读。</em></p></article></body></html>

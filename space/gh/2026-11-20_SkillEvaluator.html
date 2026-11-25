@@ -1,0 +1,95 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>2026-11-20_SkillEvaluator.md</title><style>
+body{margin:0;background:#f6f7fb;color:#1f2328;font:16px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+article{max-width:900px;margin:0 auto;padding:36px 28px 80px}
+h1{font-size:1.9em;border-bottom:2px solid #e5e7eb;padding-bottom:.3em}
+h2{font-size:1.4em;border-bottom:1px solid #eceef2;padding-bottom:.2em;margin-top:1.6em}
+h3{font-size:1.15em;margin-top:1.3em}
+code{background:#eef1f5;padding:.15em .4em;border-radius:5px;font-family:ui-monospace,Consolas,monospace;font-size:.9em}
+pre{background:#0f172a;color:#e5e7eb;padding:14px 16px;border-radius:10px;overflow:auto}
+pre code{background:none;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.95em}
+th,td{border:1px solid #dcdfe4;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid #94a3b8;background:#f1f5f9;color:#334155}
+a{color:#2563eb;text-decoration:none}a:hover{text-decoration:underline}
+hr{border:none;border-top:1px solid #e5e7eb;margin:2em 0}
+.meta{color:#64748b;font-size:.85em;margin-bottom:1em}
+</style></head><body><article><div class="meta">来源：2026-11-20_SkillEvaluator.md · 生成视图</div><h1>GitHub 热门项目精讲 · 2026-11-20</h1>
+<ul>
+<li>项目：<code>NVIDIA/SkillEvaluator</code></li>
+<li>链接：https://github.com/NVIDIA/SkillEvaluator</li>
+<li>语言：Python（PyPI 包 <code>skillevaluator</code>）</li>
+<li>Star：<strong>本次未取到精确值</strong>（本机 GitHub 被 TLS 拦截）；2026-11-17 的 AI 趋势日报记录为日增 <strong>+873</strong></li>
+<li>数据来源：NVIDIA 官方文档（docs.nvidia.com/skills/skillevaluator）+ README 搜索快照</li>
+<li>状态：NVIDIA「Verified Skills」流水线的一部分，标注为 Experimental（社区支持）</li>
+</ul>
+<blockquote>
+<p>⚠️ 说明：今天本机访问 GitHub 失败（443 被拦、代理节点全挂），所以本篇基于<strong>官方文档与搜索快照</strong>，star 数为区间参考，不是实时值。</p>
+</blockquote>
+<hr />
+<h2>1) 它是干什么的（说白了）</h2>
+<p><strong>给"AI 技能包（Agent Skill）"做体检的。</strong></p>
+<p>现在很多 AI 助手（Claude Code、Codex、Cursor…）都支持装"技能包"——一个文件夹，里面写着"遇到什么情况该怎么做"。问题来了：<strong>这个技能包到底靠不靠谱？会不会泄密？会不会跟别的技能重复？装了以后真的让 AI 变强了吗？</strong></p>
+<p>SkillEvaluator 就是回答这四个问题的工具。就像体检中心：
+- 先查证件（格式对不对）；
+- 再查有没有病（安全、隐私、许可证）；
+- 再查是不是重复（和已有技能撞车）；
+- 最后<strong>上场实测</strong>（装着技能 vs 不装，任务成功率差多少）。</p>
+<h2>2) 它由哪几块组成（三层体检 + 一条流水线）</h2>
+<pre><code>SkillEvaluator
+ ├─ Tier 1 静态体检（不用模型、不用 GPU）
+ │    schema / quality / security / PII / license /
+ │    code-integrity / Unicode / script 检查
+ │    + Harness Check：这个技能在各大 AI 助手里&quot;能不能被加载&quot;
+ │    （安全扫描用 SkillSpector、Gitleaks、Bandit，可选 Semgrep）
+ ├─ Tier 2 语义去重
+ │    检测技能内部/之间内容重复、冗余
+ ├─ Tier 3 真机评测
+ │    同一任务跑两遍：带技能 vs 不带技能 → 算 &quot;Skill Lift&quot;
+ │    （还包含合成评测数据集生成）
+ └─ 外围：CLI + GitHub/GitLab CI + NVIDIA skills 目录
+</code></pre>
+<h2>3) 核心机制（它是怎么做到的）</h2>
+<p><strong>A. Tier 1：一堆"硬指标"先卡住</strong>
+- 检查技能包的字段是否合规、描述是否超长、有没有脚本乱执行、有没有 PII（个人信息）、许可证是否缺失；
+- 还会做 <strong>Harness Check</strong>：把技能放进不同 AI 助手的加载器里试，看是否真的被读到。
+  - README 里就有真实例子：某个技能的 description 是 <strong>1028 个 UTF-16 单元，超过 1024 上限 4 个</strong>，导致 <code>copilot-cli</code> 直接不加载——这种坑人肉很难发现。</p>
+<p><strong>B. Tier 2：查"是不是抄的/重复的"</strong>
+- 语义层面比对，发现冗余内容，避免技能目录里一堆同质化条目。</p>
+<p><strong>C. Tier 3：唯一能回答"到底有没有用"的一层</strong>
+- 同一个任务，<strong>带技能跑一遍、不带技能跑一遍</strong>，比较结果 → 得到 <strong>Skill Lift</strong>；
+- 还会自动生成合成评测数据集，减少人工出题。</p>
+<p><strong>D. 接进 CI</strong>
+- <code>skillevaluator ci init</code> 在仓库里生成配置，之后每次 PR 改动技能都会自动体检并出报告。</p>
+<h2>4) 一次使用流程（像去体检）</h2>
+<ol>
+<li>安装：<code>pip install --upgrade skillevaluator</code></li>
+<li>先做"无钥匙体检"：<code>skillevaluator quality-check ./my-skill</code>（不需要 API key、不需要 GPU、不需要 Docker）</li>
+<li>看报告：分数 + 具体问题（哪条 schema 不合、哪个文件有 PII、描述超了几个字符）</li>
+<li>深入：跑 Tier 2 去重、Tier 3 真机评测（需要模型/API key）</li>
+<li>接 CI：<code>skillevaluator ci init</code>，以后每次改技能自动检查</li>
+</ol>
+<h2>5) 它比同类强在哪</h2>
+<ol>
+<li><strong>分层设计</strong>：便宜的静态检查先跑，贵的模型评测后跑，省钱；</li>
+<li><strong>Harness Check 很实用</strong>：直接告诉你"这个技能在 Claude Code 能加载、在 copilot-cli 加载不了"；</li>
+<li><strong>可量化</strong>：把"技能好不好"变成分数和 Skill Lift，而不是拍脑袋；</li>
+<li><strong>背靠 NVIDIA 目录</strong>：过了检查的技能会进入 NVIDIA Verified Skills 流水线；</li>
+<li><strong>门槛低</strong>：第一层完全免费、离线、无需模型。</li>
+</ol>
+<h2>6) 你可以怎么玩</h2>
+<ul>
+<li>你自己写了一个 skill（比如给 Claude Code 用的），先跑：
+  <code>bash
+  skillevaluator quality-check ./my-skill</code>
+  这行就是"给它做一次基础体检"，会打印分数和问题清单。</li>
+<li>想接进 GitHub Actions：<code>skillevaluator ci init</code>，按提示选检查项即可。</li>
+<li>想评估"装了技能到底有没有用"，再上 Tier 3（需要模型 key）。</li>
+</ul>
+<p><strong>给你的建议</strong>：你日常在用各种 skill/技能包，先拿一个你常用的跑一次 <code>quality-check</code>，看看它的评分和问题列表——这是理解"技能质量"最直观的方式。</p>
+<h2>7) 一句话总结</h2>
+<blockquote>
+<p><strong>SkillEvaluator = AI 技能包的体检中心</strong>：先查格式与安全（Tier 1）、再查重复（Tier 2）、最后用"带技能 vs 不带技能"的对照实验证明它真有用（Tier 3）。</p>
+</blockquote>
+<hr />
+<p><em>事实来源：NVIDIA 官方文档与 README 搜索快照；"设计意图"为基于文档的解读。star 数为参考值，非实时。</em></p></article></body></html>
