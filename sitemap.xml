@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://xs06.is-a.dev/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://xs06.is-a.dev/space/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://xs06.is-a.dev/space/notes.html</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://xs06.is-a.dev/games/arena-zero/</loc><lastmod>2026-11-14</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://space.xs06.de5.net/</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://space.xs06.de5.net/notes.html</loc><lastmod>2026-11-25</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/2048/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/arena-zero/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/breakout/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/fruit/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/gomoku/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/match3/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/memory/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/puzzle/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/shooter/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/snake/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/starfighter/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/tetris/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/whack/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://space.xs06.de5.net/games/xiangqi/</loc><lastmod>2026-11-25</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
 </urlset>
