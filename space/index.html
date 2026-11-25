@@ -12,7 +12,16 @@
 <meta property="og:url" content="https://xs06.is-a.dev/space/" />
 <meta property="og:title" content="XS 空间站 · 开发者个人空间" />
 <meta property="og:description" content="小游戏合集、资料库、留言板与 AI 助手，纯前端单页应用，数据本机可离线使用。" />
-<meta name="twitter:card" content="summary" />
+<meta property="og:site_name" content="XS 空间站" />
+<meta property="og:locale" content="zh_CN" />
+<meta property="og:image" content="https://xs06.is-a.dev/space/assets/og-cover.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="XS 空间站 · 开发者个人空间" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="XS 空间站 · 开发者个人空间" />
+<meta name="twitter:description" content="小游戏合集、资料库、留言板与 AI 助手，纯前端单页应用。" />
+<meta name="twitter:image" content="https://xs06.is-a.dev/space/assets/og-cover.png" />
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"XS 空间站","url":"https://xs06.is-a.dev/space/","applicationCategory":"EntertainmentApplication","operatingSystem":"Any","description":"小游戏合集、资料库、留言板与 AI 助手。"}</script>
 <title>XS 空间站 · 开发者个人空间</title>
 <meta name="description" content="XS 空间站：一个开发者的个人空间，收录小游戏、技术资料与 AI 助手。" />
@@ -41,10 +50,12 @@
   <nav id="nav">
     <button data-view="dash" class="active"><span class="ic">🚀</span>驾驶舱</button>
     <button data-view="games"><span class="ic">🎮</span>小游戏</button>
+    <button data-view="works"><span class="ic">🛠</span>作品</button>
     <button data-view="notes"><span class="ic">📚</span>资料库</button>
     <button data-view="board"><span class="ic">💬</span>留言板</button>
     <button data-view="ai"><span class="ic">🤖</span>AI 助手</button>
     <button data-view="about"><span class="ic">✨</span>关于</button>
+    <button data-view="me"><span class="ic">👤</span>关于我</button>
   </nav>
 
   <!-- 驾驶舱 -->
@@ -71,6 +82,8 @@
       <button data-go="board"><span class="qic">💬</span><span class="qt">去留言板</span><span class="qd">留下足迹 / 看访客留言</span></button>
       <button data-go="ai"><span class="qic">🤖</span><span class="qt">呼叫 AI 助手</span><span class="qd">提问、拆解、写作</span></button>
       <button data-go="about"><span class="qic">✨</span><span class="qt">关于空间站</span><span class="qd">开发者与技术栈</span></button>
+      <button data-go="works"><span class="qic">🛠</span><span class="qt">我的作品</span><span class="qd">法考智练 · 小游戏 · 本站</span></button>
+      <button data-go="me"><span class="qic">👤</span><span class="qt">关于我</span><span class="qd">我是谁 · 在做什么 · 怎么联系</span></button>
     </div>
   </section>
 
@@ -199,6 +212,14 @@
   <!-- 资料库 -->
   <section class="view" id="view-notes">
     <h2 class="sec">📚 资料库</h2>
+    <div class="card" style="border-color:rgba(160,107,255,.35)">
+      <h3 style="margin:0 0 6px">📖 法考总纲（按日期顺序）</h3>
+      <p class="dim small" style="margin:0">把每期法考干货按日期合并成一篇长文：善意取得、因果关系、抵押权、共犯、行政强制…持续更新。</p>
+      <div class="row" style="margin-top:10px">
+        <a class="btn" href="./notes.html">阅读全文 →</a>
+        <span class="hint">纯静态页面 · 无需登录 · 可直接分享链接</span>
+      </div>
+    </div>
     <div class="card">
       <div class="note-form">
         <div class="row">
@@ -276,7 +297,86 @@
     </div>
   </section>
 
+  <!-- 作品 -->
+  <section class="view" id="view-works">
+    <h2 class="sec">🛠 我的作品</h2>
+
+    <div class="card" style="border-color:rgba(73,230,255,.35)">
+      <p class="eyebrow" style="margin:0 0 6px">MAIN PROJECT · 主力作品</p>
+      <h3 style="font-size:20px;margin:0 0 8px">法考智练 · 法考刷题助手 Pro</h3>
+      <p>面向法考备考的 PWA 刷题应用：<b>9680 道真题 / 12 个科目</b>，错题本与薄弱点追踪、模拟考试与倒计时、知识点与笔记中心、学习报告看板，以及<b>主观题 AI 批改</b>与逐题三段式解析。可离线使用、可添加到主屏当 App。</p>
+      <div class="stat" style="margin:12px 0">
+        <span class="chip">题库 <b>9680</b> 题</span>
+        <span class="chip">科目 <b>12</b> 个</span>
+        <span class="chip">AI 解析覆盖 <b>99%+</b></span>
+        <span class="chip">离线 <b>PWA</b></span>
+      </div>
+      <div class="row">
+        <a class="btn" href="https://xs06.de5.net/" target="_blank" rel="noopener">打开应用 →</a>
+        <a class="btn ghost" href="https://github.com/DADA-dcc/fakao-pwa" target="_blank" rel="noopener">源码 →</a>
+      </div>
+    </div>
+
+    <div class="grid games" style="margin-top:14px">
+      <div class="game-card">
+        <div class="game-cover">🚀</div>
+        <div class="game-body">
+          <h3>XS 空间站（本站）</h3>
+          <p>你正在看的这个站：纯前端单页、Canvas 星空、本机存储 + 云同步、内置 AI 助手，无框架手写。</p>
+          <div class="row"><a class="btn ghost" href="https://github.com/DADA-dcc/DADA-dcc.github.io" target="_blank" rel="noopener">源码</a></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🎮</div>
+        <div class="game-body">
+          <h3>14 款小游戏</h3>
+          <p>贪吃蛇、2048、五子棋、象棋（Pikafish 引擎）、零号竞技场 FPS、星际战机、霓虹俄罗斯方块等，全部浏览器直跑。</p>
+          <div class="row"><button class="btn" data-go="games">去看看 →</button></div>
+        </div>
+      </div>
+      <div class="game-card">
+        <div class="game-cover">🤖</div>
+        <div class="game-body">
+          <h3>AI 网关 · Cloudflare Worker</h3>
+          <p>自建 OpenAI 兼容网关，绑定自有域名保证可达，被法考 App 与本站 AI 助手共用。</p>
+          <div class="row"><a class="btn ghost" href="https://ai.xs06.de5.net/" target="_blank" rel="noopener">网关地址</a></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 关于我 -->
+  <section class="view" id="view-me">
+    <h2 class="sec">👤 关于我</h2>
+    <div class="card">
+      <h3 style="margin:0 0 6px">熊帅 · Xiong Shuai</h3>
+      <p class="dim small" style="margin:0 0 12px">宜宾学院 · 法学与公共管理学院 · 知识产权专业 · 2024 级</p>
+      <p>白天学法律，晚上写代码。做这个站的原因很简单：<b>想给自己留一块不被算法决定的数字土地</b> —— 内容、结构、展示方式都由自己说了算。</p>
+      <p>现在主要在做的三件事：</p>
+      <ul style="margin:8px 0 0 18px;line-height:1.9">
+        <li><b>法考智练</b>：把 9680 道法考真题做成可离线、带 AI 解析的 PWA（已在用）</li>
+        <li><b>轻架构实验</b>：静态托管 + 边缘函数 + 托管数据库，把运维压到接近零</li>
+        <li><b>交互与图形</b>：Canvas 星空、小游戏引擎、手感调优</li>
+      </ul>
+      <div class="stat" style="margin:14px 0">
+        <span class="chip">法学 · <b>知识产权</b></span>
+        <span class="chip">Web / <b>PWA</b></span>
+        <span class="chip">Serverless</span>
+        <span class="chip">AI 应用</span>
+      </div>
+      <p class="small dim" style="margin:14px 0 0">想聊项目、合作或者只是想打个招呼，下面任意一个都行 👇</p>
+      <div class="row" style="margin-top:10px">
+        <a class="btn" href="mailto:3325893369@qq.com">✉️ 邮箱</a>
+        <a class="btn ghost" href="https://github.com/DADA-dcc" target="_blank" rel="noopener">GitHub</a>
+        <button class="btn ghost" data-go="board">站内留言板</button>
+        <a class="btn ghost" href="https://xs06.de5.net/" target="_blank" rel="noopener">我的作品</a>
+      </div>
+      <p class="small dim" style="margin:10px 0 0">邮箱：<a href="mailto:3325893369@qq.com">3325893369@qq.com</a></p>
+    </div>
+  </section>
+
   <!-- 关于 -->
+
   <section class="view" id="view-about">
     <h2 class="sec">✨ 关于空间站</h2>
     <div class="card">
@@ -291,7 +391,7 @@
     </div>
   </section>
 
-  <footer>XS 空间站 · 由 DADA-dcc 打造 · <span id="year"></span> · 仅供个人学习娱乐</footer>
+  <footer>XS 空间站 · 由 <a href="https://github.com/DADA-dcc" target="_blank" rel="noopener">DADA-dcc</a> 打造 · <span id="year"></span> · <a href="./notes.html">法考总纲</a> · <a href="https://xs06.de5.net/" target="_blank" rel="noopener">法考智练</a> · 仅供个人学习娱乐</footer>
 </div>
 
 <!-- game overlay -->
@@ -304,7 +404,7 @@
 </div>
 <script src="./assets/shim.85ec272b.js"></script>
 <script src="./vendor/xiangqi.js"></script>
-<script src="./assets/app.4e2a7968.js"></script>
+<script src="./assets/app.264e016b.js"></script>
 
 </body>
 </html>

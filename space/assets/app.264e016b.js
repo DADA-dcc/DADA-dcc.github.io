@@ -748,7 +748,7 @@ function showView(v){
   if(v==='notes'){ try{ if(window.__syncNotes) window.__syncNotes(); }catch(e){} }
   nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
   window.scrollTo({top:0,behavior:'smooth'});
-  try{ history.replaceState(null,'','#'+v); document.title=({dash:'🚀 驾驶舱',games:'🎮 小游戏',notes:'📚 资料库',board:'💬 留言板',ai:'🤖 AI助手',about:'✨ 关于'}[v]||'XS 空间站')+' · XS 空间站'; }catch(e){}
+  try{ history.replaceState(null,'','#'+v); document.title=({dash:'🚀 驾驶舱',games:'🎮 小游戏',notes:'📚 资料库',board:'💬 留言板',ai:'🤖 AI助手',about:'✨ 关于',works:'🛠 作品',me:'👤 关于我'}[v]||'XS 空间站')+' · XS 空间站'; }catch(e){}
 }
 // 首次加载：支持 #位置 / 页面视图直达
 (function(){
@@ -757,6 +757,8 @@ function showView(v){
 })();
 nav.addEventListener('click',e=>{ const b=e.target.closest('button[data-view]'); if(b) showView(b.dataset.view); });
 document.getElementById('quick').addEventListener('click',e=>{ const b=e.target.closest('button[data-go]'); if(b) showView(b.dataset.go); });
+// 任意位置的 data-go 按钮也能跳视图
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]'); if(b && !b.closest('#quick')) showView(b.dataset.go);});
 // 快捷键：`/` 聚焦搜索（资料库页）、`g` + 方向跳转、Esc 关弹窗
 document.addEventListener('keydown',(e)=>{
   const tag=(e.target.tagName||'').toLowerCase();
