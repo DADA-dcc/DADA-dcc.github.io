@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢守门人 GZ-01 — 真实建模 · Jaeger 机甲</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05080d;font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#dfe6f0}
+  #app{position:fixed;inset:0}
+  #hud{position:fixed;left:38px;top:30px;pointer-events:none;z-index:10}
+  #hud .kick{font-size:12px;letter-spacing:6px;color:#FF7A1A;font-weight:700;opacity:.9}
+  #hud h1{font-size:44px;font-weight:800;letter-spacing:4px;margin-top:6px;line-height:1.05;
+    background:linear-gradient(90deg,#e6ebf1,#7d8794);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 2px 14px rgba(0,0,0,.6))}
+  #hud h1 b{color:#FF8A3D;-webkit-text-fill-color:#FF8A3D}
+  #hud .sub{margin-top:10px;font-size:13.5px;color:#93a0b2;letter-spacing:1.2px;max-width:600px}
+  #hud .spec{margin-top:16px;font-size:12px;color:#65738a;line-height:2;letter-spacing:.5px}
+  #hud .spec i{color:#FF8A3D;font-style:normal;font-weight:700}
+  #hud .badge{display:inline-block;margin-top:14px;font-size:11px;letter-spacing:2px;color:#0b0e13;background:linear-gradient(90deg,#FF7A1A,#E8B93A);padding:4px 12px;border-radius:4px;font-weight:800}
+  #bar{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;gap:9px;z-index:10;flex-wrap:wrap;justify-content:center;max-width:94vw}
+  .btn{pointer-events:auto;cursor:pointer;border:1px solid rgba(255,122,26,.4);background:rgba(16,22,32,.72);
+    color:#e8d9c8;padding:9px 16px;border-radius:10px;font-size:13px;letter-spacing:.5px;transition:.18s;backdrop-filter:blur(10px);user-select:none}
+  .btn:hover{border-color:#FF7A1A;color:#fff;box-shadow:0 0 18px rgba(255,122,26,.4);transform:translateY(-1px)}
+  .btn.on{background:rgba(255,122,26,.22);border-color:#FF7A1A;color:#fff}
+  #tip{position:fixed;right:30px;bottom:26px;font-size:12px;color:#455268;z-index:10;text-align:right;line-height:1.7}
+  #tip b{color:#FF7A1A}
+  #load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,#0d1522,#05080d 70%);z-index:60;transition:opacity .8s}
+  #load .lt{font-size:15px;color:#FF8A3D;letter-spacing:6px;font-weight:700}
+  #load .ls{margin-top:10px;font-size:12px;color:#5f6d80;letter-spacing:2px}
+  #load .track{margin-top:22px;width:300px;height:3px;background:#1a2230;border-radius:3px;overflow:hidden}
+  #load .fill{height:100%;width:0%;background:linear-gradient(90deg,#FF6A1A,#FFD08A);transition:width .3s;box-shadow:0 0 12px #FF7A1A}
+  #load .pct{margin-top:12px;font-size:12px;color:#FF8A3D;letter-spacing:2px;font-variant-numeric:tabular-nums}
+  canvas{display:block}
+  .vignette{position:fixed;inset:0;pointer-events:none;z-index:5;box-shadow:inset 0 0 220px 60px rgba(0,0,0,.85)}
+</style>
+</head>
+<body>
+<div id="load">
+  <div class="lt">天枢守门人 GZ-01</div>
+  <div class="ls">REACTOR ONLINE · 载入真实建模资产</div>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <div class="pct" id="pct">0%</div>
+</div>
+<div id="app"></div>
+<div class="vignette"></div>
+<div id="hud">
+  <div class="kick">JAEGER · GUARDIAN OF TIANSHU</div>
+  <h1>天枢守门人 <b>GZ-01</b></h1>
+  <div class="sub">环太平洋级重型猎手 · 守望穹顶港城的钢铁巨人 · Blender 实体建模 · 实时 PBR 渲染</div>
+  <div class="spec">全高 <i>76m</i>　·　重量 <i>2160t</i>　·　反应堆驱动 · 抛光重钢<br>环形防御 · 港口气象 · 守望者计划</div>
+  <div class="badge">BLENDER MODELLED · GLB REALTIME</div>
+</div>
+<div id="bar">
+  <div class="btn on" id="btnRotate">⟳ 自动旋转</div>
+  <div class="btn" id="btnFront">正面</div>
+  <div class="btn" id="btnSide">侧面</div>
+  <div class="btn" id="btnBack">背面</div>
+  <div class="btn" id="btnHead">特写</div>
+  <div class="btn" id="btnReset">重置视角</div>
+</div>
+<div id="tip">左键拖拽旋转 · 滚轮缩放 · 右键平移<br><b>真实 Blender 建模 · mecha_hero.glb</b></div>
+
+<script src="./libs/three.min.js"></script>
+<script src="./libs/OrbitControls.js"></script>
+<script src="./libs/GLTFLoader.js"></script>
+<script src="./libs/CopyShader.js"></script>
+<script src="./libs/LuminosityHighPassShader.js"></script>
+<script src="./libs/EffectComposer.js"></script>
+<script src="./libs/RenderPass.js"></script>
+<script src="./libs/ShaderPass.js"></script>
+<script src="./libs/MaskPass.js"></script>
+<script src="./libs/UnrealBloomPass.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x05080d);
+scene.fog=new THREE.FogExp2(0x101826,0.0052);
+
+const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.5,6000);
+camera.position.set(80,70,150);
+
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:"high-performance"});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+if(THREE.sRGBEncoding!==undefined) renderer.outputEncoding=THREE.sRGBEncoding;
+if(THREE.ACESFilmicToneMapping!==undefined){ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.02; }
+document.getElementById('app').appendChild(renderer.domElement);
+
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.06;
+controls.autoRotate=true; controls.autoRotateSpeed=0.55;
+controls.minDistance=20; controls.maxDistance=900;
+controls.maxPolarAngle=Math.PI*0.92; controls.target.set(0,40,0);
+
+// ---- 环境反射：摄影棚条光（PMREM.fromScene，暗底+亮灯带）→ 金属长条高光 ----
+(function env(){
+  const pmrem=new THREE.PMREMGenerator(renderer);
+  const es=new THREE.Scene(); es.background=new THREE.Color(0x050608);
+  function strip(w,h,rgb,bright,x,y,z,ry){
+    const mat=new THREE.MeshBasicMaterial({color:0xffffff}); mat.toneMapped=false;
+    mat.color.setRGB(bright*rgb[0],bright*rgb[1],bright*rgb[2]);
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
+    m.position.set(x,y,z); if(ry!=null) m.rotation.y=ry; es.add(m); return m;
+  }
+  // 左前大柔光主灯 宽4 高14 亮度6.5
+  strip(4.0,14,[0.92,0.96,1.06],6.5, -16,6,18, Math.PI*0.18);
+  // 右侧竖条辅灯 宽2.2 亮度4
+  strip(2.2,12,[1.0,0.98,0.92],4.0, 20,6,4, -Math.PI*0.32);
+  // 背部竖条 宽3 亮度4.5
+  strip(3.0,12,[0.96,0.98,1.06],4.5, 4,6,-19, Math.PI);
+  // 顶部横条 宽1.0 亮度5（水平）
+  const topMat=new THREE.MeshBasicMaterial({color:0xffffff}); topMat.toneMapped=false; topMat.color.setRGB(5,5,5.3);
+  const top=new THREE.Mesh(new THREE.PlaneGeometry(34,1.0),topMat); top.rotation.x=Math.PI/2; top.position.set(0,18,0); es.add(top);
+  const tex=pmrem.fromScene(es,0,0.1,120).texture;
+  scene.environment=tex;
+  pmrem.dispose();
+})();
+
+// ---- 灯光（AWS Quick Smart 规划：环境条光主导 + 极简主/轮廓光）----
+scene.add(new THREE.AmbientLight(0xffffff,0.34));
+const key=new THREE.DirectionalLight(0xFFF4E6,2.1); key.position.set(-30,60,40); key.castShadow=true;
+key.shadow.mapSize.set(2048,2048); key.shadow.camera.near=1; key.shadow.camera.far=700;
+key.shadow.camera.left=-120; key.shadow.camera.right=120; key.shadow.camera.top=240; key.shadow.camera.bottom=-20;
+key.shadow.bias=-0.0006; scene.add(key);
+const rimA=new THREE.DirectionalLight(0x9FC8FF,2.0); rimA.position.set(20,40,-60); scene.add(rimA);
+const coreLight=new THREE.PointLight(0xFF6A1A,4.0,120,2); coreLight.position.set(0,42,18); scene.add(coreLight);
+
+// 保留两束探照灯变量（强度压低，供动画引用）
+const spot1=new THREE.SpotLight(0xd8e6ff,0.30,400,Math.PI/6,0.55,1.2); spot1.position.set(-90,180,80); spot1.target.position.set(0,60,0); scene.add(spot1); scene.add(spot1.target);
+const spot2=new THREE.SpotLight(0xcfe0ff,0.25,360,Math.PI/7,0.6,1.2); spot2.position.set(110,160,-60); spot2.target.position.set(0,50,0); scene.add(spot2); scene.add(spot2.target);
+
+// ---- 地面：湿滑码头平台 + 水面环 ----
+const groundGroup=new THREE.Group(); scene.add(groundGroup);
+const platform=new THREE.Mesh(new THREE.CylinderGeometry(70,76,2,72),
+  new THREE.MeshStandardMaterial({color:0x0e1218,metalness:0.6,roughness:0.7,envMapIntensity:0.6}));
+platform.position.y=-1; platform.receiveShadow=true; groundGroup.add(platform);
+const water=new THREE.Mesh(new THREE.RingGeometry(76,320,96),
+  new THREE.MeshStandardMaterial({color:0x0a141c,metalness:0.9,roughness:0.3,envMapIntensity:0.7}));
+water.rotation.x=-Math.PI/2; water.position.y=-0.5; groundGroup.add(water);
+// 地面暖色反射环
+const ringGlow=new THREE.Mesh(new THREE.RingGeometry(26,28,90),
+  new THREE.MeshBasicMaterial({color:0xFF7A1A,transparent:true,opacity:0.28,side:THREE.DoubleSide}));
+ringGlow.rotation.x=-Math.PI/2; ringGlow.position.y=0.06; groundGroup.add(ringGlow);
+
+// ---- 雨：点 + 雨丝 ----
+const RAIN_R=260;
+let rainPts, rainLines;
+(function rain(){
+  const N=2600; const pos=new Float32Array(N*3); const vel=new Float32Array(N);
+  for(let i=0;i<N;i++){ pos[i*3]=(Math.random()-0.5)*RAIN_R*2; pos[i*3+1]=Math.random()*260; pos[i*3+2]=(Math.random()-0.5)*RAIN_R*2; vel[i]=0.7+Math.random()*1.1; }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  rainPts=new THREE.Points(g,new THREE.PointsMaterial({color:0x9fb8d8,size:0.5,transparent:true,opacity:0.35}));
+  scene.add(rainPts);
+
+  const M=2400; const lp=new Float32Array(M*6); const sp=new Float32Array(M);
+  for(let i=0;i<M;i++){
+    const x=(Math.random()-0.5)*RAIN_R*2, y=Math.random()*260, z=(Math.random()-0.5)*RAIN_R*2, len=1.6+Math.random()*1.6;
+    lp[i*6]=x; lp[i*6+1]=y; lp[i*6+2]=z; lp[i*6+3]=x; lp[i*6+4]=y-len; lp[i*6+5]=z; sp[i]=140+Math.random()*120;
+  }
+  const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.BufferAttribute(lp,3));
+  rainLines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0xb8cfe8,transparent:true,opacity:0.4}));
+  rainLines.userData.sp=sp; scene.add(rainLines);
+})();
+
+// ---- 加载模型 ----
+let model=null, modelH=90, emissiveMats=[], reactorGlow=null, reactorDisc=null;
+function makeGlowTex(){
+  const c=document.createElement('canvas'); c.width=c.height=128; const x=c.getContext('2d');
+  const g=x.createRadialGradient(64,64,0,64,64,64);
+  g.addColorStop(0,'rgba(255,200,130,1)'); g.addColorStop(0.18,'rgba(255,140,50,0.85)');
+  g.addColorStop(0.45,'rgba(255,100,25,0.32)'); g.addColorStop(1,'rgba(255,60,0,0)');
+  x.fillStyle=g; x.fillRect(0,0,128,128); return new THREE.CanvasTexture(c);
+}
+// 程序化金属微表面（法线+粗糙度）→ 让实时金属有细节、不再"哑光塑料"
+const MT=(function makeMetalTex(){
+  const S=256;
+  function hash(x,y){ const n=Math.sin(x*127.1+y*311.7)*43758.5453; return n-Math.floor(n); }
+  function sm(t){ return t*t*(3-2*t); }
+  function vn(x,y){ const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;
+    const a=hash(xi,yi),b=hash(xi+1,yi),c2=hash(xi,yi+1),d2=hash(xi+1,yi+1);
+    const u=sm(xf),v=sm(yf); return a*(1-u)*(1-v)+b*u*(1-v)+c2*(1-u)*v+d2*u*v; }
+  function fbm(x,y){ let s=0,a=0.5,f=6,t=0; for(let o=0;o<4;o++){ s+=a*vn(x*f,y*f); t+=a; f*=2; a*=0.5; } return s/t; }
+  const h=new Float32Array(S*S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++) h[y*S+x]=fbm(x/S*4, y/S*4);
+  const rc=document.createElement('canvas'); rc.width=rc.height=S; const rx=rc.getContext('2d'); const ri=rx.createImageData(S,S);
+  for(let i=0;i<S*S;i++){ const g=Math.floor(200+(h[i]-0.5)*80); const j=i*4; ri.data[j]=ri.data[j+1]=ri.data[j+2]=Math.max(140,Math.min(255,g)); ri.data[j+3]=255; }
+  rx.putImageData(ri,0,0);
+  const nc=document.createElement('canvas'); nc.width=nc.height=S; const nx=nc.getContext('2d'); const ni=nx.createImageData(S,S); const str=2.4;
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){ const xl=(x-1+S)%S,xr=(x+1)%S,yd=(y-1+S)%S,yu=(y+1)%S;
+    const dx=(h[y*S+xr]-h[y*S+xl])*str, dy=(h[yu*S+x]-h[yd*S+x])*str;
+    let a=-dx,b2=-dy,c2=1; const len=Math.hypot(a,b2,c2); a/=len;b2/=len;c2/=len;
+    const j=(y*S+x)*4; ni.data[j]=Math.floor((a*0.5+0.5)*255); ni.data[j+1]=Math.floor((b2*0.5+0.5)*255); ni.data[j+2]=Math.floor((c2*0.5+0.5)*255); ni.data[j+3]=255; }
+  nx.putImageData(ni,0,0);
+  const rt=new THREE.CanvasTexture(rc), nt=new THREE.CanvasTexture(nc);
+  [rt,nt].forEach(t=>{ t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(3,3); });
+  return {rough:rt, normal:nt};
+})();
+
+const loader=new THREE.GLTFLoader();
+loader.load('./mecha_hero.glb',
+  gltf=>{
+    model=gltf.scene;
+    // 抛光重钢材质升级 + 收集自发光
+    const STEEL_UP={
+      'STEEL':[0x4A5462,0.0,0.40,0.7],'STEEL2':[0x59636F,0.0,0.36,0.8],
+      'DARK':[0x30363F,0.0,0.45,0.5],'BURN':[0x3A424C,0.0,0.42,0.6],
+      'DULL':[0x8A9098,1.0,0.25,1.0],'CHROME':[0xC9D3DD,1.0,0.10,1.2]
+    };
+    model.traverse(o=>{
+      if(o.isMesh){
+        o.castShadow=true; o.receiveShadow=true;
+        const mats=Array.isArray(o.material)?o.material:[o.material];
+        mats.forEach(m=>{
+          if(!m) return;
+          const nm=(m.name||'').toUpperCase();
+          if(STEEL_UP[nm]){
+            const p=STEEL_UP[nm];
+            m.color.setHex(p[0]); m.metalness=p[1]; m.roughness=p[2]; m.envMapIntensity=p[3];
+            m.roughnessMap=MT.rough; m.normalMap=MT.normal;
+            if(m.normalScale) m.normalScale.set(0.6,0.6);
+            m.needsUpdate=true;
+          }
+          if(m.emissive && (m.emissive.r+m.emissive.g+m.emissive.b)>0.04){
+            if(!m.userData._baseE) m.userData._baseE=(m.emissiveIntensity||1);
+            emissiveMats.push(m);
+          }
+        });
+      }
+    });
+    // 取包围盒，落地 + 居中
+    const bbox=new THREE.Box3().setFromObject(model);
+    const size=bbox.getSize(new THREE.Vector3());
+    const center=bbox.getCenter(new THREE.Vector3());
+    model.position.x -= center.x;
+    model.position.z -= center.z;
+    model.position.y -= bbox.min.y;
+    modelH=size.y;
+    scene.add(model);
+
+    // 目标 & 相机：低机位仰视，凸显 76m 高大
+    const fit=fitDistance(modelH);
+    const focusY=modelH*0.60;
+    controls.target.set(0,focusY,0);
+    camera.position.set(fit*0.56, modelH*0.17, fit*0.98);
+    camera.lookAt(0,focusY,0);
+    controls.minDistance=modelH*0.35; controls.maxDistance=modelH*9;
+
+    // 反应堆点光定位到胸腹（正面 +Z，约 73% 高度）
+    coreLight.position.set(0, modelH*0.73, modelH*0.15);
+    // 反应堆发光口（贴在胸甲前表面之外，避免被几何体遮挡）
+    const discR=modelH*0.052;
+    reactorDisc=new THREE.Mesh(new THREE.CircleGeometry(discR,48),
+      new THREE.MeshBasicMaterial({color:0xFF8A3A,transparent:true,opacity:0.95,blending:THREE.AdditiveBlending,depthWrite:false}));
+    reactorDisc.position.set(0, modelH*0.733, modelH*0.152);
+    scene.add(reactorDisc);
+    const innerDisc=new THREE.Mesh(new THREE.CircleGeometry(discR*0.5,32),
+      new THREE.MeshBasicMaterial({color:0xFFE0B0,transparent:true,opacity:1.0,blending:THREE.AdditiveBlending,depthWrite:false}));
+    innerDisc.position.set(0, modelH*0.733, modelH*0.1535);
+    scene.add(innerDisc); reactorDisc.userData.inner=innerDisc;
+    // 柔光晕（sprite，模拟 bloom）
+    reactorGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:makeGlowTex(),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+    reactorGlow.position.set(0, modelH*0.733, modelH*0.150);
+    reactorGlow.scale.setScalar(modelH*0.24);
+    scene.add(reactorGlow);
+
+    // 地面/雨按模型尺度缩放
+    groundGroup.scale.setScalar(Math.max(0.55, modelH/70));
+    // 收尾
+    finishLoad();
+  },
+  xhr=>{
+    if(xhr.total){ const p=Math.round(xhr.loaded/xhr.total*100); $('fill').style.width=p+'%'; $('pct').textContent=p+'%'; }
+    else { $('pct').textContent=Math.round(xhr.loaded/1024)+' KB'; }
+  },
+  err=>{
+    console.error('GLB 载入失败',err);
+    const isFile = location.protocol==='file:';
+    const hint = isFile
+      ? '你正在用 file:// 直接打开（浏览器禁止页面读取本地 GLB）。<br>请运行同目录的 <b>“打开演示.bat”</b>（会自动起本地服务并打开页面），<br>或访问 <b>http://127.0.0.1:8781/viewer.html</b>'
+      : '请确认 mecha_hero.glb 与 viewer.html 在同一目录，且文件未损坏。';
+    $('load').innerHTML='<div class="lt" style="color:#ff5a3c">资产载入失败</div><div class="ls">mecha_hero.glb 未找到或损坏</div><div class="ls" style="margin-top:14px;color:#7d8794;max-width:460px;text-align:center">'+hint+'<br><span style="color:#5f6d80">详情: '+String(err&&err.message||err)+'</span></div>';
+  }
+);
+
+function fitDistance(h){ // 竖直角 38° / 2 = 19°, tan19≈0.3443
+  return (h*0.5)/Math.tan((38*Math.PI/180)/2) * 1.55;
+}
+function finishLoad(){
+  $('fill').style.width='100%'; $('pct').textContent='100%';
+  setTimeout(()=>{ const L=$('load'); L.style.opacity='0'; setTimeout(()=>L.style.display='none',800); },350);
+}
+
+// ---- 视角控制 ----
+let camAnim=null;
+const curAz=()=>Math.atan2(camera.position.x-controls.target.x, camera.position.z-controls.target.z);
+function goAz(az, elevY){ if(!model)return; controls.autoRotate=false; $('btnRotate').classList.remove('on');
+  const R=Math.hypot(camera.position.x-controls.target.x, camera.position.z-controls.target.z);
+  controls.target.set(0, modelH*0.60, 0);
+  camAnim={t:0,a0:curAz(),a1:az,R,y:modelH*0.17}; }
+$('btnRotate').onclick=()=>{ controls.autoRotate=!controls.autoRotate; $('btnRotate').classList.toggle('on',controls.autoRotate); };
+$('btnFront').onclick=()=>goAz(0);
+$('btnSide').onclick=()=>goAz(Math.PI/2);
+$('btnBack').onclick=()=>goAz(Math.PI);
+$('btnHead').onclick=()=>{ if(!model)return; controls.autoRotate=false; $('btnRotate').classList.remove('on');
+  const tx=0, ty=modelH*0.86, tz=0;
+  camAnim={t:0,a0:curAz(),a1:0.5,R:modelH*0.62,y:ty,head:true}; controls.target.set(tx,ty,tz); };
+$('btnReset').onclick=()=>{ if(!model)return; camAnim=null; controls.autoRotate=true; $('btnRotate').classList.add('on');
+  const fit=fitDistance(modelH); controls.target.set(0,modelH*0.60,0);
+  camera.position.set(fit*0.56,modelH*0.17,fit*0.98); };
+
+// ---- 动画循环 ----
+// ---- 后处理：轻量 UnrealBloom（只让自发光/高光泛光）----
+let composer=null, bloomPass=null;
+(function setupPost(){
+  if(!THREE.EffectComposer || !THREE.UnrealBloomPass) return;
+  try{
+    composer=new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene,camera));
+    bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.26, 0.28, 0.98);
+    composer.addPass(bloomPass);
+    composer.setSize(innerWidth,innerHeight);
+  }catch(e){ console.error('post setup failed',e); composer=null; }
+})();
+
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const rawDt=clock.getDelta(); const dt=Math.min(0.06, rawDt); const t=clock.elapsedTime;
+  // 自发光脉冲（反应堆橙光/眼）
+  for(const m of emissiveMats){ const b=m.userData._baseE||1; m.emissiveIntensity=Math.min(1.55,b)*0.80*(0.82+Math.sin(t*2.2)*0.22); }
+  coreLight.intensity=3.6+Math.sin(t*2.4)*1.1;
+  if(reactorGlow){ reactorGlow.material.opacity=0.70+Math.sin(t*2.4)*0.22; reactorGlow.scale.setScalar(modelH*(0.24+Math.sin(t*2.4)*0.012)); }
+  if(reactorDisc){ const k=0.86+Math.sin(t*2.4)*0.14; reactorDisc.material.opacity=0.9*k; if(reactorDisc.userData.inner) reactorDisc.userData.inner.material.opacity=k; }
+  ringGlow.material.opacity=0.20+Math.sin(t*1.4)*0.12;
+  // 雨
+  if(rainPts){ const a=rainPts.geometry.attributes.position.array; const N=a.length/3;
+    for(let i=0;i<N;i++){ a[i*3+1]-=110*dt*(0.7+i%7*0.1); if(a[i*3+1]<0){ a[i*3+1]=260; a[i*3]=(Math.random()-0.5)*RAIN_R*2; a[i*3+2]=(Math.random()-0.5)*RAIN_R*2; } }
+    rainPts.geometry.attributes.position.needsUpdate=true; }
+  if(rainLines){ const a=rainLines.geometry.attributes.position.array; const sp=rainLines.userData.sp; const M=a.length/6;
+    for(let i=0;i<M;i++){ const d=sp[i]*dt; a[i*6+1]-=d; a[i*6+4]-=d;
+      if(a[i*6+1]<0){ const x=(Math.random()-0.5)*RAIN_R*2, z=(Math.random()-0.5)*RAIN_R*2; a[i*6]=x; a[i*6+1]=260; a[i*6+2]=z; a[i*6+3]=x; a[i*6+4]=260-1.8; a[i*6+5]=z; } }
+    rainLines.geometry.attributes.position.needsUpdate=true; }
+  // 探照灯缓慢扫动
+  spot1.position.x=-90+Math.sin(t*0.25)*18; spot2.position.z=-60+Math.cos(t*0.2)*16;
+  // 相机动画
+  if(camAnim){ camAnim.t=Math.min(1,camAnim.t+Math.min(0.5,rawDt)*1.9); const e=1-Math.pow(1-camAnim.t,3);
+    const az=camAnim.a0+(camAnim.a1-camAnim.a0)*e;
+    camera.position.set(Math.sin(az)*camAnim.R, camAnim.y, Math.cos(az)*camAnim.R);
+    camera.lookAt(controls.target); if(camAnim.t>=1)camAnim=null; }
+  controls.update();
+  if(composer){ composer.render(); } else { renderer.render(scene,camera); }
+}
+animate();
+
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); if(composer){ composer.setSize(innerWidth,innerHeight); if(bloomPass) bloomPass.setSize(innerWidth,innerHeight); } });
+window.__viewer={scene,camera,controls,renderer,get model(){return model}};
+</script>
+</body>
+</html>
+
+
+
+

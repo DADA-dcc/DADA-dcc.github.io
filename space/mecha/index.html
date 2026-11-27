@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天枢守门人 GZ-01 — 环太平洋重型机甲 · Blender 实体建模</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--orange:#FF7A1A;--gold:#E8B93A;--steel:#4A5157;--ink:#05080d;--panel:#0b1118}
+  html,body{background:var(--ink);color:#dfe6f0;font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{overflow-x:hidden}
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 32px}
+
+  /* 背景氛围 */
+  .bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(900px 600px at 78% 8%, rgba(255,122,26,.13), transparent 60%),
+      radial-gradient(700px 500px at 10% 90%, rgba(60,110,170,.12), transparent 65%),
+      linear-gradient(180deg,#05080d,#070c13 40%,#05080d);}
+  .grid{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.16;
+    background-image:linear-gradient(rgba(120,160,200,.14) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,200,.14) 1px,transparent 1px);
+    background-size:64px 64px;mask-image:radial-gradient(circle at 50% 40%,#000 30%,transparent 78%);}
+
+  header{position:relative;z-index:2;padding:26px 0}
+  .nav{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:2px;font-size:15px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--orange);box-shadow:0 0 14px var(--orange)}
+  .brand small{color:#5f6d80;font-weight:600;letter-spacing:3px;font-size:10px}
+  .nav .links{display:flex;gap:22px;font-size:13px;color:#8b96a6}
+  .nav .links a:hover{color:#fff}
+
+  /* HERO */
+  .hero{position:relative;z-index:2;display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:34px 0 26px}
+  .kick{font-size:12px;letter-spacing:7px;color:var(--orange);font-weight:800}
+  h1{font-size:clamp(40px,5.4vw,74px);font-weight:900;letter-spacing:3px;line-height:1.02;margin-top:12px;
+    background:linear-gradient(92deg,#eef3f8,#8d99a8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  h1 b{color:#FF8A3D;-webkit-text-fill-color:#FF8A3D;text-shadow:0 0 46px rgba(255,122,26,.45)}
+  .lead{margin-top:18px;font-size:15px;line-height:1.85;color:#93a0b2;max-width:520px}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+  .chip{font-size:12px;letter-spacing:.5px;color:#c7d2df;border:1px solid rgba(120,160,200,.22);background:rgba(18,26,36,.6);padding:6px 12px;border-radius:999px}
+  .chip i{color:var(--orange);font-style:normal;font-weight:800}
+  .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+  .btn{cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:12px;font-size:14px;font-weight:700;letter-spacing:.6px;transition:.2s;border:1px solid transparent}
+  .btn.primary{background:linear-gradient(92deg,#FF7A1A,#FF9A46);color:#160b02;box-shadow:0 10px 30px rgba(255,122,26,.32)}
+  .btn.primary:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(255,122,26,.45)}
+  .btn.ghost{border-color:rgba(120,160,200,.3);color:#cfd8e4;background:rgba(16,22,32,.55)}
+  .btn.ghost:hover{border-color:var(--orange);color:#fff;box-shadow:0 0 20px rgba(255,122,26,.28)}
+  .btn.gold{border-color:rgba(232,185,58,.4);color:#ead9a2}
+  .btn.gold:hover{border-color:var(--gold);box-shadow:0 0 20px rgba(232,185,58,.3)}
+
+  .shotwrap{position:relative}
+  .shot{position:relative;border-radius:18px;overflow:hidden;border:1px solid rgba(255,122,26,.28);
+    box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 60px rgba(255,122,26,.10) inset;background:#070b11;cursor:zoom-in}
+  .shot img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+  .shot .tag{position:absolute;left:14px;top:14px;font-size:10px;letter-spacing:3px;color:#0b0e13;background:linear-gradient(90deg,var(--orange),var(--gold));padding:4px 10px;border-radius:5px;font-weight:900}
+  .shot .cap{position:absolute;left:0;right:0;bottom:0;padding:26px 18px 14px;font-size:12px;letter-spacing:1px;color:#cdd6e2;
+    background:linear-gradient(0deg,rgba(3,6,10,.92),transparent)}
+  .shot .cap b{color:var(--orange)}
+
+  /* GALLERY */
+  section.gallery{position:relative;z-index:2;padding:46px 0 20px}
+  .sec-h{display:flex;align-items:baseline;gap:16px;margin-bottom:20px}
+  .sec-h h2{font-size:22px;letter-spacing:2px;font-weight:800}
+  .sec-h span{font-size:12px;color:#5f6d80;letter-spacing:3px}
+  .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .card{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(120,160,200,.16);background:#080d13;cursor:zoom-in;transition:.2s}
+  .card:hover{border-color:rgba(255,122,26,.55);transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.55)}
+  .card img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover}
+  .card .lb{position:absolute;left:12px;bottom:10px;font-size:12px;letter-spacing:1px;color:#e6ecf3;text-shadow:0 2px 10px #000}
+
+  /* spec table */
+  section.specs{position:relative;z-index:2;padding:34px 0 60px}
+  .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:8px}
+  .sbox{border:1px solid rgba(120,160,200,.14);background:rgba(10,16,23,.7);border-radius:12px;padding:16px 16px}
+  .sbox .k{font-size:11px;letter-spacing:2px;color:#5f6d80}
+  .sbox .v{margin-top:6px;font-size:17px;font-weight:800;color:#e9eef5}
+  .sbox .v i{color:var(--orange);font-style:normal}
+
+  footer{position:relative;z-index:2;border-top:1px solid rgba(120,160,200,.12);padding:22px 0 40px;color:#4b5768;font-size:12px;letter-spacing:.5px}
+  footer b{color:#8b96a6}
+
+  /* lightbox */
+  #lb{position:fixed;inset:0;z-index:99;background:rgba(3,5,9,.94);display:none;align-items:center;justify-content:center;padding:40px}
+  #lb.on{display:flex}
+  #lb img{max-width:96vw;max-height:88vh;border-radius:12px;box-shadow:0 30px 90px #000}
+  #lb .x{position:absolute;top:22px;right:30px;font-size:30px;color:#8b96a6;cursor:pointer}
+  #lb .x:hover{color:#fff}
+
+  @media(max-width:900px){
+    .hero{grid-template-columns:1fr;gap:28px}
+    .g3{grid-template-columns:1fr}
+    .sgrid{grid-template-columns:repeat(2,1fr)}
+    .nav .links{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="bgfx"></div><div class="grid"></div>
+
+<header class="wrap">
+  <div class="nav">
+    <div class="brand"><span class="dot"></span>天枢守门人 <small>GZ-01 / JAEGER</small></div>
+    <div class="links">
+      <a href="https://space.xs06.de5.net/mecha/viewer.html">实时 3D</a>
+      <a href="#gallery">多机位</a>
+      <a href="#specs">技术规格</a>
+      <a href="https://space.xs06.de5.net/mecha/mecha_hero.glb">下载模型</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div>
+      <div class="kick">JAEGER · GUARDIAN OF TIANSHU</div>
+      <h1>天枢守门人 <b>GZ-01</b></h1>
+      <p class="lead">环太平洋级重型猎手。以 Blender 4.2 实体建模、Cycles 电影级渲染打造的 76 米钢铁巨人，抛光重钢、镜面装甲、反应堆驱动，实时 3D 可自由环绕审视每一个装甲分缝与液压结构。</p>
+      <div class="chips">
+        <span class="chip">全高 <i>76m</i></span>
+        <span class="chip">重量 <i>2160t</i></span>
+        <span class="chip">反应堆驱动</span>
+        <span class="chip">抛光重钢</span>
+        <span class="chip">守望者计划</span>
+      </div>
+      <div class="cta">
+        <a class="btn primary" href="https://space.xs06.de5.net/mecha/viewer.html">▶ 进入实时 3D 查看</a>
+        <a class="btn ghost" href="https://space.xs06.de5.net/mecha/mecha_hero.glb" download>⬇ 下载 GLB 模型</a>
+        <a class="btn gold" href="./procedural.html">程序化演示</a>
+      </div>
+    </div>
+    <div class="shotwrap">
+      <div class="shot" onclick="openLB('./gz01_battlewide.png','./gz01_hero.png')">
+        <span class="tag">BLENDER · CYCLES</span>
+        <img src="./gz01_battlewide.png" onerror="this.onerror=null;this.src='./gz01_hero.png'" alt="天枢守门人 GZ-01 出拳">
+        <div class="cap">英雄机位 · 24mm 广角低机位 · <b>点击查看大图</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery" id="gallery">
+    <div class="sec-h"><h2>多机位视图</h2><span>MULTI-CAMERA · 1920×1080</span></div>
+    <div class="g3">
+      <div class="card" onclick="openLB('./gz01_front.png','./v43_front.png')">
+        <img src="./gz01_front.png" onerror="this.onerror=null;this.src='./v43_front.png'" alt="正面">
+        <div class="lb">正面 · FRONT</div>
+      </div>
+      <div class="card" onclick="openLB('./gz01_back.png','./v43_back.png')">
+        <img src="./gz01_back.png" onerror="this.onerror=null;this.src='./v43_back.png'" alt="背面">
+        <div class="lb">背面 · BACK</div>
+      </div>
+      <div class="card" onclick="openLB('./gz01_head.png','./v43_head.png')">
+        <img src="./gz01_head.png" onerror="this.onerror=null;this.src='./v43_head.png'" alt="头部特写">
+        <div class="lb">头部特写 · HEAD</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery" id="battle">
+    <div class="sec-h"><h2>雨夜守港</h2><span>NIGHT WATCH · Sentinel 姿态 + 电影级光效</span></div>
+    <div class="g3">
+      <div class="card" onclick="openLB('./gz01_battlewide.png','./gz01_battlewide.png')">
+        <img src="./gz01_battlewide.png" alt="雨夜守港 广角"><div class="lb">雨夜守港 · 广角</div>
+      </div>
+      <div class="card" onclick="openLB('./gz01_battleclose.png','./gz01_battleclose.png')">
+        <img src="./gz01_battleclose.png" alt="雨夜守港 特写"><div class="lb">雨夜守港 · 特写</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="specs" id="specs">
+    <div class="sec-h"><h2>技术规格</h2><span>TECHNICAL SHEET</span></div>
+    <div class="sgrid">
+      <div class="sbox"><div class="k">建模工具</div><div class="v">Blender <i>4.2 LTS</i></div></div>
+      <div class="sbox"><div class="k">渲染引擎</div><div class="v">Cycles <i>160–192 spp</i></div></div>
+      <div class="sbox"><div class="k">网格规模</div><div class="v"><i>184</i> 部件</div></div>
+      <div class="sbox"><div class="k">实时引擎</div><div class="v">Three.js <i>r128</i></div></div>
+      <div class="sbox"><div class="k">模型格式</div><div class="v">glTF 2.0 <i>GLB</i></div></div>
+      <div class="sbox"><div class="k">模型体积</div><div class="v"><i>1.2</i> MB</div></div>
+      <div class="sbox"><div class="k">着色</div><div class="v">PBR 金属 / 自发光</div></div>
+      <div class="sbox"><div class="k">姿态</div><div class="v">宽步距 · 低重心</div></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <b>天枢守门人 GZ-01</b> · 环形防御 · 港口气象 · 守望者计划　|　建模 Blender 4.2 LTS · 渲染 Cycles · 实时 Three.js r128 · glTF 2.0
+<p class="credit" style="font-size:12px;color:#8a93a0;margin-top:18px;">模型基于 CC0 公有领域开源资产 FORGE · ATLAS/09（Ramon Linares, github.com/RamonLinares/atlas-09）二次利用与重渲；CC0 允许商用、修改与转售。</p>
+</footer>
+
+<div id="lb" onclick="if(event.target.id==='lb'||event.target.className==='x')closeLB()">
+  <span class="x">✕</span>
+  <img id="lbimg" src="" alt="">
+</div>
+
+<script>
+function openLB(src, fb){
+  const im=document.getElementById('lbimg');
+  im.onerror=function(){ if(fb){ this.onerror=null; this.src=fb; } };
+  im.src=src;
+  document.getElementById('lb').classList.add('on');
+}
+function closeLB(){ document.getElementById('lb').classList.remove('on'); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeLB(); });
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
