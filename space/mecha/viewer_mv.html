@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>丝路守护者 · 天枢 GZ-01 ｜ 实时 3D / AR</title>
+<style>
+  :root{--bg:#070b12;--panel:#0e1622;--line:#1e2a3a;--orange:#ff8a30;--steel:#8fa4bd;--white:#eef3fa}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:radial-gradient(1200px 700px at 50% 0%,#0d1626,#06090f 70%);color:var(--white);
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;overflow:hidden}
+  .wrap{display:grid;grid-template-columns:1fr 360px;height:100%}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr;grid-template-rows:1fr auto}.side{max-height:42vh;overflow:auto}}
+  /* 3D 区 */
+  .stage{position:relative;min-height:0}
+  model-viewer{width:100%;height:100%;background:transparent;--poster-color:transparent;
+    --progress-bar-color:var(--orange);--progress-bar-height:2px}
+  .brand{position:absolute;left:34px;top:28px;z-index:5;pointer-events:none}
+  .brand .k{font-size:12px;letter-spacing:.32em;color:var(--orange);font-weight:700}
+  .brand h1{font-size:38px;letter-spacing:.02em;margin-top:6px;text-shadow:0 4px 24px #000}
+  .brand p{color:var(--steel);font-size:13px;letter-spacing:.16em;margin-top:6px}
+  .hint{position:absolute;left:34px;bottom:24px;color:#6c7f95;font-size:12px;letter-spacing:.1em;z-index:5}
+  .hint b{color:var(--orange)}
+  .tools{position:absolute;right:22px;bottom:22px;display:flex;gap:10px;z-index:6;flex-wrap:wrap;justify-content:flex-end}
+  .btn{border:1px solid var(--line);background:rgba(14,22,34,.82);color:var(--white);padding:11px 15px;border-radius:10px;
+    font-size:13px;cursor:pointer;backdrop-filter:blur(8px);transition:.2s}
+  .btn:hover{border-color:var(--orange);color:var(--orange)}
+  .btn.primary{background:linear-gradient(135deg,#ff7a1a,#ffb066);border:none;color:#1a0d02;font-weight:800}
+  /* 侧栏 */
+  .side{background:linear-gradient(180deg,#0b1219,#0a1017);border-left:1px solid var(--line);padding:30px 26px;overflow:auto}
+  .side h2{font-size:15px;letter-spacing:.24em;color:var(--orange);font-weight:800;margin-bottom:16px}
+  .row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(30,42,58,.7);font-size:13.5px}
+  .row span{color:#7f93aa}.row b{color:var(--white);font-weight:600}
+  .desc{margin-top:22px;color:#93a6bd;font-size:13px;line-height:1.9}
+  .desc b{color:var(--orange)}
+  .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .tag{font-size:11.5px;color:#8fa4bd;border:1px solid var(--line);border-radius:20px;padding:5px 12px}
+  .foot{margin-top:24px;font-size:11.5px;color:#5b6b7e;line-height:1.8}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#37d67a;margin-right:7px;
+    box-shadow:0 0 10px #37d67a;animation:p 1.6s infinite}
+  @keyframes p{50%{opacity:.35}}
+</style>
+<script type="module" src="./libs/model-viewer.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="brand">
+      <div class="k">SILK ROAD · GUARDIAN · GZ-01</div>
+      <h1>丝路守护者 · 天枢</h1>
+      <p>实时 3D · 可旋转缩放 · 支持手机 AR 实景</p>
+    </div>
+    <model-viewer id="mv" src="./mecha_hero.glb"
+      alt="丝路守护者天枢 GZ-01 重机甲"
+      camera-controls auto-rotate rotation-per-second="16deg" auto-rotate-delay="600"
+      interaction-prompt="auto" shadow-intensity="1.4" shadow-softness="0.85"
+      exposure="1.05" environment-image="neutral" tone-mapping="aces"
+      camera-orbit="42deg 74deg 108%" camera-target="auto auto auto"
+      min-field-of-view="18deg" max-field-of-view="48deg"
+      ar ar-modes="webxr scene-viewer quick-look" ar-scale="auto"
+      poster="./gz01_front.png" reveal="auto" loading="eager"
+      touch-action="pan-y">
+      <button class="btn primary" slot="ar-button" style="position:absolute;right:22px;bottom:22px">📱 在 AR 中查看真机</button>
+      <div class="progress-bar" slot="progress-bar" style="
+        position:absolute;left:0;bottom:0;width:100%;height:2px;background:#16202e">
+        <div class="update-bar" style="height:100%;width:0;background:var(--orange);transition:width .3s"></div>
+      </div>
+    </model-viewer>
+    <div class="hint">左键拖拽旋转 · 滚轮缩放 · 右键平移 &nbsp;|&nbsp; <b>双击</b> 复位</div>
+    <div class="tools">
+      <button class="btn" id="btnRotate">⏸ 暂停旋转</button>
+      <button class="btn" id="btnReset">↺ 重置视角</button>
+      <button class="btn" id="btnFront">◉ 正面</button>
+      <button class="btn" id="btnSide">◧ 侧面</button>
+    </div>
+  </div>
+
+  <aside class="side">
+    <h2>作品参数</h2>
+    <div class="row"><span>机型代号</span><b>GZ-01</b></div>
+    <div class="row"><span>全高 / 重量</span><b>76 m / 2160 t</b></div>
+    <div class="row"><span>动力</span><b>双反应堆驱动</b></div>
+    <div class="row"><span>装甲</span><b>抛光重钢 + 镜面复合</b></div>
+    <div class="row"><span>模型格式</span><b>glTF 2.0 (GLB)</b></div>
+    <div class="row"><span>文件大小</span><b>4.84 MB</b></div>
+    <div class="row"><span>渲染引擎</span><b>Blender 4.2 / Cycles</b></div>
+    <div class="row"><span>实时引擎</span><b>model-viewer · WebGL</b></div>
+
+    <div class="desc">
+      <b>IP 设定</b>：丝路古道关隘的数字守护者。取北斗第一星「天枢」为名，守关隘、引行旅；肩甲额顶嵌北斗七星纹，橙红星枢为全身唯一暖光。
+    </div>
+    <div class="tags">
+      <span class="tag">Blender 实体建模</span>
+      <span class="tag">Cycles 电影级渲染</span>
+      <span class="tag">glTF 2.0</span>
+      <span class="tag">Web 实时 3D</span>
+      <span class="tag">AR 实景</span>
+    </div>
+    <div class="foot"><span class="dot"></span>WebGL 实时渲染中 · 无需插件<br>
+    在线体验：space.xs06.de5.net/mecha/</div>
+  </aside>
+</div>
+
+<script>
+const mv=document.getElementById('mv');
+let rotating=true;
+document.getElementById('btnRotate').onclick=e=>{
+  rotating=!rotating; mv.autoRotate=rotating;
+  e.target.textContent = rotating ? '⏸ 暂停旋转' : '▶ 继续旋转';
+};
+document.getElementById('btnReset').onclick=()=>{
+  mv.cameraOrbit='42deg 74deg 108%'; mv.fieldOfView='auto'; mv.resetTurntableRotation&&mv.resetTurntableRotation();
+};
+document.getElementById('btnFront').onclick=()=>{ mv.cameraOrbit='0deg 78deg 105%'; };
+document.getElementById('btnSide').onclick=()=>{ mv.cameraOrbit='-88deg 76deg 105%'; };
+mv.addEventListener('dblclick',()=>{ mv.cameraOrbit='42deg 74deg 108%'; });
+mv.addEventListener('load',()=>{ document.title='丝路守护者 · 天枢 GZ-01 ｜ 已加载'; });
+mv.addEventListener('error',e=>{ console.error('model-viewer error',e); });
+</script>
+</body>
+</html>
