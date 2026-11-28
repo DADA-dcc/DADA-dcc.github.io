@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>梦幻赛博童话 · 3D 旋转木马游乐园</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#05010f;}
+  #app{position:fixed;inset:0;}
+  canvas{display:block;}
+  #hint{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    color:#ffe9b0;font:13px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    letter-spacing:.12em;text-align:center;pointer-events:none;opacity:.9;
+    text-shadow:0 0 12px rgba(255,200,90,.8),0 0 30px rgba(150,80,255,.5);
+    transition:opacity 1s ease;z-index:10;
+  }
+  #err{
+    position:fixed;inset:0;display:none;place-items:center;z-index:20;
+    color:#ffd0e6;background:rgba(10,0,20,.92);font:14px/1.7 sans-serif;padding:24px;text-align:center;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hint">拖拽环绕 · 滚轮缩放 · 鼠标滑动带动萤火虫光流</div>
+<div id="err"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+const errBox = document.getElementById('err');
+window.addEventListener('error', (e)=>{ errBox.style.display='grid'; errBox.textContent='加载出错：'+(e.message||e.error)+'\n（请确认能联网访问 unpkg.com 的 three.js）'; });
+window.addEventListener('unhandledrejection', (e)=>{ errBox.style.display='grid'; errBox.textContent='加载出错：'+(e.reason&&e.reason.message||e.reason)+'\n（请确认能联网访问 unpkg.com 的 three.js）'; });
+
+// ---------- 基础三件套 ----------
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x06010f);
+scene.fog = new THREE.FogExp2(0x0a0620, 0.018);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 14, 26);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.82;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.rotateSpeed = 0.8;
+controls.zoomSpeed = 0.9;
+controls.minDistance = 6;
+controls.maxDistance = 45;
+controls.maxPolarAngle = Math.PI * 0.52;
+controls.minPolarAngle = Math.PI * 0.12;
+controls.target.set(0, 2.6, 0);
+
+// ---------- 灯光 ----------
+scene.add(new THREE.HemisphereLight(0x6a3cff, 0x120018, 0.55));
+const amb = new THREE.AmbientLight(0x40306a, 0.6); scene.add(amb);
+
+const key = new THREE.DirectionalLight(0xffe9c0, 0.95);
+key.position.set(8, 16, 8);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1; key.shadow.camera.far = 60;
+key.shadow.camera.left=-16; key.shadow.camera.right=16; key.shadow.camera.top=16; key.shadow.camera.bottom=-16;
+key.shadow.bias = -0.0004;
+scene.add(key);
+
+const pl1 = new THREE.PointLight(0xff3fa4, 22, 40, 2); pl1.position.set(-8, 6, 6); scene.add(pl1);
+const pl2 = new THREE.PointLight(0x33e0ff, 22, 40, 2); pl2.position.set(8, 6, -6); scene.add(pl2);
+const topGlow = new THREE.PointLight(0xffd27a, 24, 30, 2); topGlow.position.set(0, 8.6, 0); scene.add(topGlow);
+
+// ---------- 材质工具 ----------
+const gold = new THREE.MeshStandardMaterial({ color:0xffcf6b, metalness:1.0, roughness:0.22, emissive:0x2a1a00, emissiveIntensity:0.25 });
+const goldDark = new THREE.MeshStandardMaterial({ color:0xc9973f, metalness:1.0, roughness:0.32 });
+const neon = (hex)=> new THREE.MeshBasicMaterial({ color:hex }); // 亮到发光，靠 bloom
+const glass = new THREE.MeshPhysicalMaterial({
+  color:0xbfe9ff, metalness:0.0, roughness:0.08, transmission:0.9, thickness:0.6,
+  ior:1.4, clearcoat:1, clearcoatRoughness:0.1, emissive:0x2aa7ff, emissiveIntensity:0.16,
+  transparent:true, opacity:1, side:THREE.DoubleSide
+});
+
+// ---------- 地面（真实镜面反射） ----------
+const mirror = new Reflector(new THREE.CircleGeometry(60, 96), {
+  clipBias: 0.003, textureWidth: 512, textureHeight: 512, color: 0x0a0518
+});
+mirror.rotateX(-Math.PI/2); mirror.position.y = 0.004; scene.add(mirror);
+
+// 地面接触阴影（叠在反射上压暗中心）
+const aoTex = (()=>{
+  const c=document.createElement('canvas'); c.width=c.height=256;
+  const g=c.getContext('2d'); const gr=g.createRadialGradient(128,128,10,128,128,128);
+  gr.addColorStop(0,'rgba(0,0,0,0.6)'); gr.addColorStop(0.55,'rgba(0,0,0,0.28)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr; g.fillRect(0,0,256,256); const t=new THREE.CanvasTexture(c); return t;
+})();
+const aoPlane = new THREE.Mesh(new THREE.PlaneGeometry(18,18), new THREE.MeshBasicMaterial({map:aoTex, transparent:true, depthWrite:false, opacity:0.7}));
+aoPlane.rotation.x = -Math.PI/2; aoPlane.position.y = 0.02; scene.add(aoPlane);
+
+// ---------- 旋转木马 ----------
+const carousel = new THREE.Group(); scene.add(carousel);
+const R = 4.2;               // 半径
+const platformY = 0.9;
+
+// 底座
+const base = new THREE.Mesh(new THREE.CylinderGeometry(R*1.02, R*1.12, 0.7, 72), goldDark);
+base.position.y = platformY*0.5 - 0.05; base.castShadow = true; base.receiveShadow = true; carousel.add(base);
+// 底座霓虹环
+const baseRing = new THREE.Mesh(new THREE.TorusGeometry(R*1.02, 0.045, 12, 96), neon(0xff2fa0));
+baseRing.rotation.x = Math.PI/2; baseRing.position.y = platformY - 0.02; carousel.add(baseRing);
+// 平台
+const plat = new THREE.Mesh(new THREE.CylinderGeometry(R*0.98, R*0.98, 0.16, 72), new THREE.MeshStandardMaterial({color:0x1a1140, metalness:0.6, roughness:0.3}));
+plat.position.y = platformY; plat.receiveShadow=true; carousel.add(plat);
+// 平台金边
+const platRim = new THREE.Mesh(new THREE.TorusGeometry(R*0.98, 0.05, 12, 96), gold);
+platRim.rotation.x = Math.PI/2; platRim.position.y = platformY + 0.08; carousel.add(platRim);
+
+// 中心柱
+const colH = 5.2;
+const column = new THREE.Mesh(new THREE.CylinderGeometry(R*0.16, R*0.20, colH, 32), gold);
+column.position.y = platformY + colH/2; column.castShadow = true; carousel.add(column);
+// 螺旋霓虹灯带
+function helix(radius, height, turns, tube, color){
+  const pts=[]; const N=200;
+  for(let i=0;i<=N;i++){ const t=i/N; const a=t*Math.PI*2*turns; pts.push(new THREE.Vector3(Math.cos(a)*radius, platformY+0.2+t*height, Math.sin(a)*radius)); }
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const geo=new THREE.TubeGeometry(curve, 240, tube, 8, false);
+  return new THREE.Mesh(geo, neon(color));
+}
+const helix1 = helix(R*0.24, colH*0.94, 5, 0.03, 0xff2fd0); carousel.add(helix1);
+const helix2 = helix(R*0.30, colH*0.9, 4, 0.022, 0x33e0ff); carousel.add(helix2);
+
+// 顶棚
+const canopyY = platformY + colH;
+const canopy = new THREE.Mesh(new THREE.ConeGeometry(R*1.18, 1.7, 48, 1, true), gold);
+canopy.position.y = canopyY + 0.85; canopy.castShadow = true; carousel.add(canopy);
+// 顶棚金边环
+const canRim = new THREE.Mesh(new THREE.TorusGeometry(R*1.18, 0.07, 12, 96), gold);
+canRim.rotation.x = Math.PI/2; canRim.position.y = canopyY; carousel.add(canRim);
+// 顶棚霓虹环（下沿）
+const canNeon = new THREE.Mesh(new THREE.TorusGeometry(R*1.16, 0.05, 12, 120), neon(0xff37c2));
+canNeon.rotation.x = Math.PI/2; canNeon.position.y = canopyY - 0.02; carousel.add(canNeon);
+// 顶棚条纹（发光）
+for(let i=0;i<12;i++){
+  const a=i/12*Math.PI*2;
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 1.0), neon(i%2?0xffd27a:0x8a5bff));
+  stripe.position.set(Math.cos(a)*R*0.98, canopyY+0.35, Math.sin(a)*R*0.98);
+  stripe.rotation.y = -a; carousel.add(stripe);
+}
+// 顶尖
+const finial = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 24), gold);
+finial.position.y = canopyY + 1.85; carousel.add(finial);
+const finialNeon = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), neon(0xfff1a8));
+finialNeon.position.y = canopyY + 1.85; carousel.add(finialNeon);
+
+// ---------- 水晶木马 ----------
+function makeHorse(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 16), glass);
+  body.scale.set(1.5, 1.0, 0.8); body.position.y = 0.0; g.add(body);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.26,0.7,14), glass);
+  neck.position.set(0.55, 0.35, 0); neck.rotation.z = -0.7; g.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.26,16,16), glass);
+  head.scale.set(1.3,1,0.8); head.position.set(0.95, 0.7, 0); g.add(head);
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.14,12,12), glass); snout.position.set(1.18,0.62,0); g.add(snout);
+  // 腿
+  const legGeo = new THREE.CylinderGeometry(0.07,0.05,0.85,8);
+  [[-0.45,0.28],[ -0.45,-0.28],[0.45,0.28],[0.45,-0.28]].forEach(p=>{
+    const l=new THREE.Mesh(legGeo, glass); l.position.set(p[0], -0.6, p[1]); l.rotation.z = (p[0]>0?-0.15:0.15); g.add(l);
+  });
+  // 鬃毛/尾巴（金）
+  const mane = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.5,8), gold); mane.position.set(0.55,0.72,0); mane.rotation.z=-0.8; g.add(mane);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.12,0.6,8), gold); tail.position.set(-0.85,0.15,0); tail.rotation.z=0.9; g.add(tail);
+  g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; } });
+  return g;
+}
+const horses = [];
+const HORSE_N = 8;
+const horseRadius = R*0.72;
+for(let i=0;i<HORSE_N;i++){
+  const a = i/HORSE_N*Math.PI*2;
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035, colH*0.9, 10), gold);
+  pole.position.set(Math.cos(a)*horseRadius, platformY + colH*0.45, Math.sin(a)*horseRadius);
+  carousel.add(pole);
+  const h = makeHorse();
+  h.position.set(Math.cos(a)*horseRadius, platformY + 1.7, Math.sin(a)*horseRadius);
+  h.rotation.y = -a + Math.PI/2;
+  carousel.add(h);
+  horses.push({ mesh:h, phase: a, baseY: platformY + 1.7 });
+}
+
+// ---------- 顶棚/平台 追光流苏灯 ----------
+const bulbGeo = new THREE.SphereGeometry(0.055, 10, 10);
+const festoons = [];
+function addFestoon(radius, y, count, speed){
+  const arr=[];
+  for(let i=0;i<count;i++){
+    const a=i/count*Math.PI*2;
+    const m=new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({color:0xffffff}));
+    m.position.set(Math.cos(a)*radius, y, Math.sin(a)*radius);
+    scene.add(m); arr.push({m, i, count, speed});
+  }
+  festoons.push(arr);
+}
+addFestoon(R*1.15, canopyY-0.03, 44, 3.0);
+addFestoon(R*0.99, platformY+0.12, 36, -2.2);
+
+// ---------- 远景城堡 + 月亮 + 星空 ----------
+const castle = new THREE.Group(); scene.add(castle);
+const stone = new THREE.MeshStandardMaterial({color:0x140b2e, metalness:0.35, roughness:0.82});
+const stoneWin = new THREE.MeshBasicMaterial({color:0xffcf7a});
+function tower(x,z,w,h,roofH){
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(w,w*1.05,h,16), stone);
+  body.position.set(x,h/2,z); castle.add(body);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(w*1.25,roofH,16), stone);
+  roof.position.set(x,h+roofH/2,z); castle.add(roof);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(w*1.05,0.05,8,24), neon(0x6b4bff));
+  rim.rotation.x=Math.PI/2; rim.position.set(x,h,z); castle.add(rim);
+  for(let k=0;k<4;k++){ const win=new THREE.Mesh(new THREE.PlaneGeometry(w*0.28,w*0.4), stoneWin); win.position.set(x, h*0.2+k*h*0.18, z+w*1.02); castle.add(win); }
+}
+tower(-9,-30,1.6,10,3); tower(9,-30,1.6,11,3.2); tower(-3.5,-32,1.2,7,2.2); tower(4,-31,1.2,8,2.4); tower(0,-33,1.9,15,4.0);
+const spire=new THREE.Mesh(new THREE.ConeGeometry(0.5,3,12), neon(0xffd27a)); spire.position.set(0,17.5,-33); castle.add(spire);
+
+// 月亮
+const moon=new THREE.Mesh(new THREE.SphereGeometry(3.2,32,32), new THREE.MeshBasicMaterial({color:0xfff2cf}));
+moon.position.set(-16,22,-40); scene.add(moon);
+const moonGlow=new THREE.Mesh(new THREE.SphereGeometry(5.5,32,32), new THREE.MeshBasicMaterial({color:0xffe6a8, transparent:true, opacity:0.14, blending:THREE.AdditiveBlending, depthWrite:false}));
+moonGlow.position.copy(moon.position); scene.add(moonGlow);
+
+// 星空
+const starGeo=new THREE.BufferGeometry(); const SN=1200; const sp=new Float32Array(SN*3);
+for(let i=0;i<SN;i++){ const r=60+Math.random()*40; const th=Math.random()*Math.PI*2; const ph=Math.random()*Math.PI*0.5; sp[i*3]=Math.cos(th)*Math.cos(ph)*r; sp[i*3+1]=Math.sin(ph)*r+8; sp[i*3+2]=Math.sin(th)*Math.cos(ph)*r; }
+starGeo.setAttribute('position', new THREE.BufferAttribute(sp,3));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({size:0.5, color:0xbfd0ff, transparent:true, opacity:0.8, depthWrite:false})));
+// ---------- 金色萤火虫粒子 ----------
+const FLY_N = 3500;
+const flyGeo = new THREE.BufferGeometry();
+const flyPos = new Float32Array(FLY_N*3);
+const flySeed = new Float32Array(FLY_N);
+const flyBase = new Float32Array(FLY_N*3); // 记录各点基准，用于鼠标光流偏移
+for(let i=0;i<FLY_N;i++){
+  const r = Math.sqrt(Math.random())*R*2.4;
+  const a = Math.random()*Math.PI*2;
+  const x = Math.cos(a)*r, z = Math.sin(a)*r;
+  const y = Math.random()*9.5;
+  flyPos[i*3]=x; flyPos[i*3+1]=y; flyPos[i*3+2]=z;
+  flyBase[i*3]=x; flyBase[i*3+1]=y; flyBase[i*3+2]=z;
+  flySeed[i]=Math.random();
+}
+flyGeo.setAttribute('position', new THREE.BufferAttribute(flyPos,3));
+// 圆形贴图（柔和光点）
+const dotTex = (()=>{ const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  const gr=g.createRadialGradient(32,32,0,32,32,32); gr.addColorStop(0,'rgba(255,240,190,1)'); gr.addColorStop(0.3,'rgba(255,215,120,0.9)'); gr.addColorStop(1,'rgba(255,180,60,0)');
+  g.fillStyle=gr; g.beginPath(); g.arc(32,32,32,0,7); g.fill(); return new THREE.CanvasTexture(c); })();
+const flyMat = new THREE.PointsMaterial({ size:0.12, map:dotTex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, color:0xffd98a, sizeAttenuation:true });
+const flies = new THREE.Points(flyGeo, flyMat); scene.add(flies);
+
+// 鼠标光流
+const pointer = { x:0, y:0, dx:0, dy:0, tx:0, ty:0 };
+addEventListener('pointermove', (e)=>{
+  const nx = (e.clientX/innerWidth)*2-1, ny=(e.clientY/innerHeight)*2-1;
+  pointer.dx = nx - pointer.x; pointer.dy = ny - pointer.y;
+  pointer.tx = nx; pointer.ty = ny;
+  pointer.x = nx; pointer.y = ny;
+});
+
+// ---------- 体积光（丁达尔，假体积光锥） ----------
+const godC = document.createElement('canvas'); godC.width=128; godC.height=256;
+{
+  const g=godC.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0,'rgba(255,235,170,0.9)'); gr.addColorStop(0.4,'rgba(255,210,120,0.28)'); gr.addColorStop(1,'rgba(160,90,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,128,256);
+}
+const godTex = new THREE.CanvasTexture(godC);
+const rays = [];
+for(let i=0;i<6;i++){
+  const a = i/6*Math.PI*2;
+  const geo = new THREE.ConeGeometry(0.7, 5.5, 24, 1, true);
+  const mat = new THREE.MeshBasicMaterial({ map:godTex, color: i%2?0xffd27a:0x9a7bff, transparent:true, opacity:0.16, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(Math.cos(a)*R*0.7, canopyY+0.2, Math.sin(a)*R*0.7);
+  m.rotation.z = Math.PI; // 向下
+  m.rotation.x = Math.cos(a)*0.35; m.rotation.y = Math.sin(a)*0.35;
+  rays.push({mesh:m, phase:a});
+  scene.add(m);
+}
+
+// ---------- 小型摩天轮 ----------
+const ferris = new THREE.Group(); ferris.position.set(12,0,-8); scene.add(ferris);
+const Rw=4.0, cyF=5.4;
+const ferrisWheel = new THREE.Group(); ferrisWheel.position.y=cyF; ferris.add(ferrisWheel);
+const rimF1=new THREE.Mesh(new THREE.TorusGeometry(Rw,0.07,10,80), gold); ferrisWheel.add(rimF1);
+const rimF2=new THREE.Mesh(new THREE.TorusGeometry(Rw,0.07,10,80), gold); rimF2.position.z=0.6; ferrisWheel.add(rimF2);
+const rimFn=new THREE.Mesh(new THREE.TorusGeometry(Rw,0.05,10,90), neon(0x33e0ff)); rimFn.position.z=0.3; ferrisWheel.add(rimFn);
+for(let i=0;i<12;i++){ const a=i/12*Math.PI*2;
+  const sp=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,Rw,6), gold);
+  sp.position.set(Math.cos(a)*Rw/2, Math.sin(a)*Rw/2, 0.3); sp.rotation.z = a - Math.PI/2; ferrisWheel.add(sp);
+}
+const ferrisCabins=[];
+for(let i=0;i<12;i++){ const a=i/12*Math.PI*2; const cab=new THREE.Group();
+  cab.position.set(Math.cos(a)*Rw, Math.sin(a)*Rw, 0.3);
+  const box=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5), new THREE.MeshStandardMaterial({color:i%2?0xff5bb0:0x66e6ff, metalness:0.5, roughness:0.3, emissive:i%2?0x551133:0x113355, emissiveIntensity:0.6}));
+  box.position.y=-0.32; cab.add(box); ferrisWheel.add(cab); ferrisCabins.push(cab);
+}
+[-1,1].forEach(s=>{ const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.13,cyF,10), gold); leg.position.set(0, cyF/2, s*0.95); leg.rotation.x = s*0.26; ferris.add(leg); });
+const hubF=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,1.5,16), gold); hubF.rotation.x=Math.PI/2; hubF.position.y=cyF; ferris.add(hubF);
+
+// ---------- 旋转飞机 ----------
+function makePlane(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,0.9,10), glass); body.rotation.z=Math.PI/2; g.add(body);
+  const wing=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.05,0.34), gold); g.add(wing);
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.24,0.28), gold); tail.position.set(-0.4,0.13,0); g.add(tail);
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10), neon(0xff3fa4)); nose.position.x=0.45; g.add(nose);
+  g.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+  return g;
+}
+const planeRide=new THREE.Group(); planeRide.position.set(-12,0,-6); scene.add(planeRide);
+const colP=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.45,4.0,20), gold); colP.position.y=2.0; planeRide.add(colP);
+const capP=new THREE.Mesh(new THREE.ConeGeometry(1.25,0.9,24), gold); capP.position.y=4.45; planeRide.add(capP);
+const planeSpin=new THREE.Group(); planeSpin.position.y=4.3; planeRide.add(planeSpin);
+const planes=[]; const Rp=3.6;
+for(let i=0;i<6;i++){ const a=i/6*Math.PI*2;
+  const armG=new THREE.Group(); armG.rotation.y=a; planeSpin.add(armG);
+  const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,Rp,8), gold); arm.rotation.z=Math.PI/2; arm.position.x=Rp/2; armG.add(arm);
+  const plane=makePlane(); plane.position.set(Rp,-0.4,0); armG.add(plane);
+  planes.push({mesh:plane, baseY:-0.4, i});
+}
+
+// ---------- 烟花 ----------
+const fireworks=[]; let fwNext=0;
+function spawnFirework(ox,oy,oz){
+  const n=130; const pos=new Float32Array(n*3); const vel=[]; const col=new Float32Array(n*3);
+  const hue=Math.random(); const cc=new THREE.Color();
+  for(let i=0;i<n;i++){
+    const th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1), sp=3+Math.random()*3.2;
+    vel.push(Math.sin(ph)*Math.cos(th)*sp, Math.cos(ph)*sp, Math.sin(ph)*Math.sin(th)*sp);
+    cc.setHSL((hue+Math.random()*0.12)%1,1,0.6); col[i*3]=cc.r; col[i*3+1]=cc.g; col[i*3+2]=cc.b;
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  const m=new THREE.PointsMaterial({size:0.22, vertexColors:true, transparent:true, opacity:1, depthWrite:false, blending:THREE.AdditiveBlending, map:dotTex});
+  const pts=new THREE.Points(g,m);
+  if(ox===undefined){ ox=(Math.random()-0.5)*26; oy=9+Math.random()*6; oz=-16-Math.random()*10; }
+  pts.position.set(ox,oy,oz);
+  scene.add(pts);
+  fireworks.push({pts, vel, life:0, max:1.6+Math.random()*0.9});
+}
+function updateFireworks(dt,t){
+  if(t>fwNext){ spawnFirework(); fwNext=t+1.1+Math.random()*1.6; }
+  for(let i=fireworks.length-1;i>=0;i--){
+    const fw=fireworks[i]; fw.life+=dt;
+    const arr=fw.pts.geometry.attributes.position.array;
+    for(let k=0;k<arr.length/3;k++){
+      fw.vel[k*3+1]-=4.5*dt;
+      arr[k*3]+=fw.vel[k*3]*dt; arr[k*3+1]+=fw.vel[k*3+1]*dt; arr[k*3+2]+=fw.vel[k*3+2]*dt;
+    }
+    fw.pts.geometry.attributes.position.needsUpdate=true;
+    fw.pts.material.opacity=Math.max(0,1-fw.life/fw.max);
+    if(fw.life>=fw.max){ scene.remove(fw.pts); fw.pts.geometry.dispose(); fw.pts.material.dispose(); fireworks.splice(i,1); }
+  }
+}
+// ---------- 小火车轨道 + 小火车 ----------
+const trackR=9.4, trackY=0.25;
+const railOuter=new THREE.Mesh(new THREE.TorusGeometry(trackR+0.13,0.045,8,140), gold); railOuter.rotation.x=Math.PI/2; railOuter.position.y=trackY; scene.add(railOuter);
+const railInner=new THREE.Mesh(new THREE.TorusGeometry(trackR-0.13,0.045,8,140), gold); railInner.rotation.x=Math.PI/2; railInner.position.y=trackY; scene.add(railInner);
+const railNeon=new THREE.Mesh(new THREE.TorusGeometry(trackR,0.03,8,160), neon(0x33e0ff)); railNeon.rotation.x=Math.PI/2; railNeon.position.y=trackY-0.02; scene.add(railNeon);
+for(let i=0;i<52;i++){ const a=i/52*Math.PI*2; const sl=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.05,0.16), goldDark); sl.position.set(Math.cos(a)*trackR, trackY-0.04, Math.sin(a)*trackR); sl.rotation.y=-a; scene.add(sl); }
+function makeCar(color, len){ const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(len,0.5,0.6), new THREE.MeshStandardMaterial({color, metalness:0.6, roughness:0.3, emissive:color, emissiveIntensity:0.18})); body.position.y=0.35; g.add(body);
+  [[-len*0.3,0.2],[len*0.3,0.2]].forEach(function(p){ [-0.32,0.32].forEach(function(z){ const w=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.08,12), goldDark); w.rotation.x=Math.PI/2; w.position.set(p[0],p[1],z); g.add(w); }); });
+  g.traverse(function(o){ if(o.isMesh) o.castShadow=true; }); return g; }
+const train=new THREE.Group(); scene.add(train);
+const loco=makeCar(0xff3fa4, 0.9);
+const chim=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.13,0.35,10), gold); chim.position.set(0.28,0.75,0); loco.add(chim);
+const locoLight=new THREE.Mesh(new THREE.SphereGeometry(0.1,10,10), neon(0xfff1a8)); locoLight.position.set(0.5,0.6,0); loco.add(locoLight);
+train.add(loco);
+for(let i=0;i<3;i++){ const car=makeCar([0x33e0ff,0xffd27a,0x9a7bff][i], 0.8); car.position.z=-(i+1)*1.05; train.add(car); }
+let trainAngle=0;
+
+// ---------- 马戏团帐篷 ----------
+const tent=new THREE.Group(); tent.position.set(-8,0,-16); scene.add(tent);
+const wall=new THREE.Mesh(new THREE.CylinderGeometry(3,3,3,32,1,true), new THREE.MeshStandardMaterial({color:0x2a0f3a, metalness:0.3, roughness:0.7, side:THREE.DoubleSide})); wall.position.y=1.5; tent.add(wall);
+const tentStripes=(function(){ const cv=document.createElement('canvas'); cv.width=128; cv.height=128; const g=cv.getContext('2d'); for(let i=0;i<8;i++){ g.fillStyle=(i%2)?'#ff3f8f':'#ffe6a8'; g.fillRect(i*16,0,16,128);} return new THREE.CanvasTexture(cv); })();
+const roof=new THREE.Mesh(new THREE.ConeGeometry(3.4,2.4,32,1,true), new THREE.MeshStandardMaterial({map:tentStripes, metalness:0.2, roughness:0.6, emissive:0x331122, emissiveIntensity:0.35, side:THREE.DoubleSide})); roof.position.y=4.2; tent.add(roof);
+const flagPole=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.2,8), gold); flagPole.position.y=6.1; tent.add(flagPole);
+const flag=new THREE.Mesh(new THREE.PlaneGeometry(0.9,0.5), neon(0xff3fa4)); flag.position.set(0.45,6.4,0); tent.add(flag);
+const door=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.8), new THREE.MeshBasicMaterial({color:0xffd27a})); door.position.set(0,0.9,3.01); tent.add(door);
+const tentRim=new THREE.Mesh(new THREE.TorusGeometry(3.0,0.05,8,48), neon(0x9a7bff)); tentRim.rotation.x=Math.PI/2; tentRim.position.y=3.0; tent.add(tentRim);
+
+// ---------- 升空气球 ----------
+const balloons=[]; const balColors=[0xff5bb0,0x66e6ff,0xffd27a,0x9a7bff,0x7cffb2];
+for(let i=0;i<14;i++){
+  const g=new THREE.Group(); const col=balColors[i%balColors.length];
+  const b=new THREE.Mesh(new THREE.SphereGeometry(0.35,16,16), new THREE.MeshStandardMaterial({color:col, emissive:col, emissiveIntensity:0.45, metalness:0.2, roughness:0.3})); b.scale.y=1.2; g.add(b);
+  const str=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.8,4), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.35})); str.position.y=-0.55; g.add(str);
+  const ang=Math.random()*Math.PI*2, rad=3+Math.random()*9;
+  g.position.set(Math.cos(ang)*rad, 1+Math.random()*6, Math.sin(ang)*rad); scene.add(g);
+  balloons.push({mesh:g, speed:0.25+Math.random()*0.35, sway:Math.random()*6.28, baseX:g.position.x, baseZ:g.position.z});
+}
+
+// ---------- 点击天空手动放烟花 ----------
+let _dX=0,_dY=0,_dT=0;
+renderer.domElement.addEventListener('pointerdown', function(e){ _dX=e.clientX; _dY=e.clientY; _dT=performance.now(); });
+renderer.domElement.addEventListener('pointerup', function(e){
+  if(Math.abs(e.clientX-_dX)<6 && Math.abs(e.clientY-_dY)<6 && (performance.now()-_dT)<450){
+    const nx=(e.clientX/innerWidth)*2-1, ny=-(e.clientY/innerHeight)*2+1;
+    const rc=new THREE.Raycaster(); rc.setFromCamera({x:nx,y:ny}, camera);
+    const p=rc.ray.at(30, new THREE.Vector3());
+    spawnFirework(p.x, Math.max(p.y, 7), p.z);
+  }
+});
+// ---------- 旋转茶杯 ----------
+const teaRide=new THREE.Group(); teaRide.position.set(13,0,7); scene.add(teaRide);
+const teaBase=new THREE.Mesh(new THREE.CylinderGeometry(3.3,3.5,0.35,40), goldDark); teaBase.position.y=0.175; teaBase.receiveShadow=true; teaRide.add(teaBase);
+const teaBaseNeon=new THREE.Mesh(new THREE.TorusGeometry(3.35,0.05,8,64), neon(0xff5bb0)); teaBaseNeon.rotation.x=Math.PI/2; teaBaseNeon.position.y=0.36; teaRide.add(teaBaseNeon);
+const teaSpin=new THREE.Group(); teaSpin.position.y=0.35; teaRide.add(teaSpin);
+const teaCups=[]; const teaCols=[0xff7fb0,0x66e6ff,0xffd27a,0x9a7bff,0x7cffb2];
+for(let i=0;i<5;i++){ const a=i/5*Math.PI*2; const cg=new THREE.Group(); cg.position.set(Math.cos(a)*2.1,0,Math.sin(a)*2.1);
+  const col=teaCols[i];
+  const cupMat=new THREE.MeshStandardMaterial({color:col, metalness:0.3, roughness:0.35, emissive:col, emissiveIntensity:0.18, side:THREE.DoubleSide});
+  const saucer=new THREE.Mesh(new THREE.CylinderGeometry(0.68,0.68,0.08,20), cupMat); saucer.position.y=0.05; cg.add(saucer);
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.4,0.62,20,1,true), cupMat); body.position.y=0.42; cg.add(body);
+  const tea=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.36,0.05,20), new THREE.MeshStandardMaterial({color:0x3a1a4a, roughness:0.4})); tea.position.y=0.56; cg.add(tea);
+  const handle=new THREE.Mesh(new THREE.TorusGeometry(0.18,0.05,8,16), cupMat); handle.position.set(0.62,0.42,0); cg.add(handle);
+  cg.traverse(function(o){ if(o.isMesh) o.castShadow=true; });
+  teaSpin.add(cg); teaCups.push(cg);
+}
+
+// ---------- 鬼屋 ----------
+const haunted=new THREE.Group(); haunted.position.set(15,0,-16); scene.add(haunted);
+const hBody=new THREE.Mesh(new THREE.BoxGeometry(4.2,3.6,4.2), new THREE.MeshStandardMaterial({color:0x1a0f2e, metalness:0.3, roughness:0.82})); hBody.position.y=1.8; hBody.castShadow=true; hBody.receiveShadow=true; haunted.add(hBody);
+const hRoof=new THREE.Mesh(new THREE.ConeGeometry(3.2,2.0,4), new THREE.MeshStandardMaterial({color:0x120a20, metalness:0.3, roughness:0.82})); hRoof.position.y=4.6; hRoof.rotation.y=Math.PI/4; haunted.add(hRoof);
+const hWins=[];
+[[-1.2,2.4,2.12],[1.2,2.4,2.12],[-1.2,1.1,2.12],[1.2,1.1,2.12]].forEach(function(p){ const w=new THREE.Mesh(new THREE.PlaneGeometry(0.7,0.9), new THREE.MeshBasicMaterial({color:0x8affc0})); w.position.set(p[0],p[1],p[2]); haunted.add(w); hWins.push(w); });
+const hDoor=new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.8), new THREE.MeshBasicMaterial({color:0x2a0f3a})); hDoor.position.set(0,0.9,2.12); haunted.add(hDoor);
+const hTrim=new THREE.Mesh(new THREE.TorusGeometry(3.0,0.04,8,40), neon(0x9a7bff)); hTrim.rotation.x=Math.PI/2; hTrim.position.y=3.55; haunted.add(hTrim);
+
+// ---------- 碰碰车 ----------
+const bumper=new THREE.Group(); bumper.position.set(-13,0,7); scene.add(bumper);
+const bFloor=new THREE.Mesh(new THREE.CylinderGeometry(3.2,3.2,0.15,40), new THREE.MeshStandardMaterial({color:0x101828, metalness:0.5, roughness:0.4})); bFloor.position.y=0.1; bFloor.receiveShadow=true; bumper.add(bFloor);
+const bWall=new THREE.Mesh(new THREE.CylinderGeometry(3.3,3.3,0.6,40,1,true), new THREE.MeshStandardMaterial({color:0x1a1030, metalness:0.4, roughness:0.5, side:THREE.DoubleSide})); bWall.position.y=0.35; bumper.add(bWall);
+const bNeon=new THREE.Mesh(new THREE.TorusGeometry(3.3,0.05,8,64), neon(0x33e0ff)); bNeon.rotation.x=Math.PI/2; bNeon.position.y=0.66; bumper.add(bNeon);
+function makeBumperCar(col){ const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.35,0.45), new THREE.MeshStandardMaterial({color:col, metalness:0.5, roughness:0.3, emissive:col, emissiveIntensity:0.2})); body.position.y=0.3; g.add(body);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.05,8,20), gold); ring.rotation.x=Math.PI/2; ring.position.y=0.18; g.add(ring);
+  const light=new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), neon(0xfff1a8)); light.position.set(0.3,0.35,0); g.add(light);
+  g.traverse(function(o){ if(o.isMesh) o.castShadow=true; }); return g; }
+const bCars=[]; const bCols=[0xff5bb0,0x66e6ff,0xffd27a,0x9a7bff,0x7cffb2,0xff8a3d];
+for(let i=0;i<6;i++){ const car=makeBumperCar(bCols[i]); const a=Math.random()*Math.PI*2, r=Math.random()*2.2; car.position.set(Math.cos(a)*r,0.15,Math.sin(a)*r); const sp=1.2+Math.random()*0.9, dir=Math.random()*Math.PI*2; bCars.push({m:car, vx:Math.cos(dir)*sp, vz:Math.sin(dir)*sp}); bumper.add(car); }
+// ---------- 后期处理：Bloom ----------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.5, 0.45, 0.72);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// ---------- 交互/尺寸 ----------
+addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- 动画 ----------
+const clock = new THREE.Clock();
+let _prevT = 0;
+const posAttr = flyGeo.attributes.position;
+function animate(){
+  const t = clock.getElapsedTime();
+  const dt = Math.min(0.05, t - _prevT); _prevT = t;
+
+  // 木马旋转
+  carousel.rotation.y += 0.006;
+
+  // 木马上下起伏（奔跑感）
+  horses.forEach((h,i)=>{
+    h.mesh.position.y = h.baseY + Math.sin(t*2.2 + h.phase*2)*0.22;
+    h.mesh.rotation.z = Math.sin(t*2.2 + h.phase*2)*0.06;
+  });
+
+  // 霓虹呼吸
+  const pulse = 0.6 + 0.4*Math.sin(t*2.0);
+  baseRing.material.color.setHSL((t*0.05)%1, 1, 0.6);
+  canNeon.material.color.setHSL((t*0.07+0.5)%1, 1, 0.62);
+  finialNeon.material.color.setHSL((t*0.1)%1, 1, 0.7);
+  topGlow.intensity = 18 + 10*pulse;
+  glass.emissiveIntensity = 0.12 + 0.10*pulse;
+
+  // 萤火虫上升 + 鼠标光流
+  const driftX = pointer.tx*0.6, driftY = -pointer.ty*0.4;
+  for(let i=0;i<FLY_N;i++){
+    let y = posAttr.array[i*3+1] + 0.012*(0.5+flySeed[i]);
+    if(y>10){ y=0.2; }
+    posAttr.array[i*3+1] = y;
+    // 横向轻微飘动 + 鼠标拖尾偏移
+    const bx = flyBase[i*3], bz = flyBase[i*3+2];
+    posAttr.array[i*3]   = bx + Math.sin(t*0.6 + flySeed[i]*6.28)*0.25 + driftX*(0.4+flySeed[i]);
+    posAttr.array[i*3+2] = bz + Math.cos(t*0.5 + flySeed[i]*6.28)*0.25 + driftY*(0.4+flySeed[i]);
+  }
+  posAttr.needsUpdate = true;
+  flyMat.size = 0.10 + 0.05*Math.sin(t*3);
+
+  // 体积光轻微摆动
+  rays.forEach((r,i)=>{
+    r.mesh.material.opacity = 0.11 + 0.07*Math.sin(t*1.5 + r.phase);
+    r.mesh.rotation.z = Math.PI + Math.sin(t*0.6 + r.phase)*0.05;
+  });
+
+  // 追光流苏灯（跑马灯循环）
+  festoons.forEach((arr)=>{
+    arr.forEach(b=>{ const hue=((t*b.speed + b.i/b.count*Math.PI*2)/(Math.PI*2))%1; b.m.material.color.setHSL((hue*0.8+1)%1, 1, 0.6); });
+  });
+  // 摩天轮旋转 + 吊舱保水平
+  ferrisWheel.rotation.z += dt*0.25;
+  ferrisCabins.forEach(function(cab){ cab.rotation.z = -ferrisWheel.rotation.z; });
+  // 旋转飞机
+  planeSpin.rotation.y += dt*0.6;
+  planes.forEach(function(p){ p.mesh.position.y = p.baseY + Math.sin(t*2.0 + p.i)*0.5; });
+  // 烟花
+  updateFireworks(dt, t);
+  // 小火车绕轨
+  trainAngle += dt*0.35;
+  train.position.set(Math.cos(trainAngle)*trackR, trackY+0.4, Math.sin(trainAngle)*trackR);
+  train.rotation.y = -trainAngle - Math.PI/2;
+  // 气球上升飘动
+  balloons.forEach(function(bl){
+    bl.mesh.position.y += dt*bl.speed;
+    if(bl.mesh.position.y>11) bl.mesh.position.y=1;
+    bl.mesh.position.x = bl.baseX + Math.sin(t*0.8+bl.sway)*0.5;
+    bl.mesh.position.z = bl.baseZ + Math.cos(t*0.7+bl.sway)*0.5;
+  });
+  // 旋转茶杯（大盘转 + 杯子自转）
+  teaSpin.rotation.y += dt*0.5;
+  teaCups.forEach(function(cup){ cup.rotation.y += dt*1.3; });
+  // 鬼屋窗户诡异闪烁
+  hWins.forEach(function(w,i){ w.material.color.setHSL((0.34+0.12*Math.sin(t*3+i*1.7)),0.85,(0.45+0.2*Math.sin(t*5+i))); });
+  // 碰碰车乱撞 + 撞墙反弹
+  bCars.forEach(function(cc){
+    var p=cc.m.position; p.x+=cc.vx*dt; p.z+=cc.vz*dt;
+    var d=Math.hypot(p.x,p.z);
+    if(d>2.7){ var nx=p.x/d, nz=p.z/d; var dot=cc.vx*nx+cc.vz*nz; cc.vx-=2*dot*nx; cc.vz-=2*dot*nz; p.x=nx*2.7; p.z=nz*2.7; }
+    cc.m.rotation.y=Math.atan2(cc.vx,cc.vz);
+  });
+  controls.update();
+  composer.render();
+  requestAnimationFrame(animate);
+}
+animate();
+window.__ready = true;
+
+// 提示淡出
+setTimeout(()=>{ const h=document.getElementById('hint'); if(h) h.style.opacity='0.25'; }, 6000);
+</script>
+</body>
+</html>
